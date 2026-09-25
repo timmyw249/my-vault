@@ -217,12 +217,18 @@
                 <span class="dot"></span>
             </div>
             <div class="pin-keypad">
-                <button class="key">1</button><button class="key">2</button><button class="key">3</button>
-                <button class="key">4</button><button class="key">5</button><button class="key">6</button>
-                <button class="key">7</button><button class="key">8</button><button class="key">9</button>
-                <button class="key action-btn" id="pin-clear">C</button>
-                <button class="key">0</button>
-                <button class="key action-btn" id="pin-mode-btn">⚙️</button>
+                <button class="key" onclick="pressKey('1')">1</button>
+                <button class="key" onclick="pressKey('2')">2</button>
+                <button class="key" onclick="pressKey('3')">3</button>
+                <button class="key" onclick="pressKey('4')">4</button>
+                <button class="key" onclick="pressKey('5')">5</button>
+                <button class="key" onclick="pressKey('6')">6</button>
+                <button class="key" onclick="pressKey('7')">7</button>
+                <button class="key" onclick="pressKey('8')">8</button>
+                <button class="key" onclick="pressKey('9')">9</button>
+                <button class="key action-btn" onclick="clearPin()">C</button>
+                <button class="key" onclick="pressKey('0')">0</button>
+                <button class="key action-btn" onclick="changePin()">⚙️</button>
             </div>
         </div>
     </div>
@@ -232,11 +238,11 @@
         <header>
             <h1>My Vault</h1>
             <div class="header-actions">
-                <button id="select-mode-btn" class="icon-btn">Select</button>
-                <button id="delete-btn" class="icon-btn hidden text-danger">Delete</button>
+                <button id="select-mode-btn" class="icon-btn" onclick="toggleSelectMode()">Select</button>
+                <button id="delete-btn" class="icon-btn hidden text-danger" onclick="deleteSelected()">Delete</button>
                 <label for="file-upload" class="icon-btn upload-lbl">+</label>
-                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;">
-                <button id="lock-btn" class="icon-btn">🔒</button>
+                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;" onchange="handleUpload(event)">
+                <button id="lock-btn" class="icon-btn" onclick="lockVault()">🔒</button>
             </div>
         </header>
 
@@ -246,7 +252,7 @@
 
     <!-- Fullscreen Viewer -->
     <div id="viewer-screen" class="viewer hidden">
-        <button id="viewer-close" class="viewer-btn close-btn">&times;</button>
+        <button id="viewer-close" class="viewer-btn close-btn" onclick="closeViewer()">&times;</button>
         <div id="viewer-content"></div>
     </div>
 
@@ -257,88 +263,82 @@
         var selectedIds = new Set();
         var db = null;
 
-        document.addEventListener("DOMContentLoaded", function() {
-            var pinDots = document.querySelectorAll('.dot');
-            var pinScreen = document.getElementById('pin-screen');
-            var vaultScreen = document.getElementById('vault-screen');
-
-            try {
-                if (localStorage.getItem("vault_pin")) {
-                    currentPin = localStorage.getItem("vault_pin");
-                } else {
-                    localStorage.setItem("vault_pin", "1234");
-                }
-            } catch (e) {
-                console.log("Local storage fallback active.");
+        // Immediately read from phone storage
+        try {
+            if (localStorage.getItem("vault_pin")) {
+                currentPin = localStorage.getItem("vault_pin");
+            } else {
+                localStorage.setItem("vault_pin", "1234");
             }
+        } catch (e) {
+            console.log("Storage access restriction ignored.");
+        }
 
-            var dbRequest = indexedDB.open("PhotoVaultDB", 1);
-            dbRequest.onupgradeneeded = function(e) {
-                var localDb = e.target.result;
-                if (!localDb.objectStoreNames.contains("media")) {
-                    localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
-                }
-            };
-            dbRequest.onsuccess = function(e) { 
-                db = e.target.result; 
-                loadGallery(); 
-            };
-            dbRequest.onerror = function(e) {
-                console.error("Local database failure.");
-            };
+        // Setup Local Database Engine
+        var dbRequest = indexedDB.open("PhotoVaultDB", 1);
+        dbRequest.onupgradeneeded = function(e) {
+            var localDb = e.target.result;
+            if (!localDb.objectStoreNames.contains("media")) {
+                localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        dbRequest.onsuccess = function(e) { 
+            db = e.target.result; 
+            loadGallery(); 
+        };
 
-            document.querySelectorAll('.key').forEach(function(button) {
-                button.addEventListener('click', function() {
-                    var value = button.innerText;
-                    if (!isNaN(value) && pinInput.length < 4) {
-                        pinInput += value;
-                        updateDots();
-                        if (pinInput.length === 4) {
-                            setTimeout(verifyPin, 150);
-                        }
-                    }
-                });
-            });
-
-            document.getElementById('pin-clear').addEventListener('click', function() {
-                pinInput = "";
+        // UI Keypad Functions
+        function pressKey(num) {
+            if (pinInput.length < 4) {
+                pinInput += num;
                 updateDots();
-            });
-
-            document.getElementById('pin-mode-btn').addEventListener('click', function() {
-                var newPin = prompt("Enter your new 4-digit code:");
-                if(newPin && newPin.length === 4 && !isNaN(newPin)) {
-                    localStorage.setItem("vault_pin", newPin);
-                    currentPin = newPin;
-                    alert("PIN code successfully changed!");
-                    window.location.reload();
-                } else if(newPin) {
-                    alert("Invalid entry. Must be exactly 4 numeric digits.");
+                if (pinInput.length === 4) {
+                    setTimeout(verifyPin, 150);
                 }
-            });
+            }
+        }
 
-            function updateDots() {
+        function clearPin() {
+            pinInput = "";
+            updateDots();
+        }
 
+        function changePin() {
+            var newPin = prompt("Enter a new 4-digit code:");
+            if(newPin && newPin.length === 4 && !isNaN(newPin)) {
+                localStorage.setItem("vault_pin", newPin);
+                currentPin = newPin;
+                alert("PIN successfully updated!");
+                window.location.reload();
+            } else if(newPin) {
+                alert("Invalid configuration code. Please use 4 numbers.");
+            }
+        }
+
+        function updateDots() {
+            var pinDots = document.querySelectorAll('.dot');
             pinDots.forEach(function(dot, index) {
-if (index < pinInput.length) dot.classList.add('filled');
-else dot.classList.remove('filled');
-});
-}
-function verifyPin() {
+                if (index < pinInput.length) dot.classList.add('filled');
+                else dot.classList.remove('filled');
+            });
+        }
+
+        function verifyPin() {
 if (pinInput === currentPin) {
-pinScreen.classList.remove('active');
-vaultScreen.classList.add('active');
+document.getElementById('pin-screen').classList.remove('active');
+document.getElementById('vault-screen').classList.add('active');
 } else {
 alert("Incorrect PIN code.");
 }
 pinInput = "";
 updateDots();
 }
-document.getElementById('lock-btn').addEventListener('click', function() {
-vaultScreen.classList.remove('active');
-pinScreen.classList.add('active');
-});
-document.getElementById('file-upload').addEventListener('change', function(e) {
+function lockVault() {
+document.getElementById('vault-screen').classList.remove('active');
+document.getElementById('pin-screen').classList.add('active');
+}
+// Media Upload Mechanics
+function handleUpload(e) {
 var files = Array.from(e.target.files);
 if(!db) return alert("Database initializing...");
 var transaction = db.transaction(["media"], "readwrite");
@@ -357,16 +357,17 @@ reader.readAsDataURL(file);
 transaction.oncomplete = function() {
 setTimeout(loadGallery, 400);
 };
-});
-document.getElementById('select-mode-btn').addEventListener('click', function() {
+}
+// Gallery & Multi-Selection Panel
+function toggleSelectMode() {
 isSelectMode = !isSelectMode;
-this.innerText = isSelectMode ? "Cancel" : "Select";
+document.getElementById('select-mode-btn').innerText = isSelectMode ? "Cancel" : "Select";
 document.getElementById('delete-btn').classList.add('hidden');
 selectedIds.clear();
 loadGallery();
-});
-document.getElementById('delete-btn').addEventListener('click', function() {
-if (confirm("Permanently delete selected item(s)?")) {
+}
+function deleteSelected() {
+if (confirm("Permanently wipe out chosen file(s)?")) {
 var transaction = db.transaction(["media"], "readwrite");
 var store = transaction.objectStore("media");
 selectedIds.forEach(function(id) { store.delete(Number(id)); });
@@ -378,12 +379,12 @@ selectedIds.clear();
 loadGallery();
 };
 }
-});
-document.getElementById('viewer-close').addEventListener('click', function() {
+}
+// Fullscreen Viewer controls
+function closeViewer() {
 document.getElementById('viewer-screen').classList.add('hidden');
 document.getElementById('viewer-content').innerHTML = "";
-});
-});
+}
 function loadGallery() {
 var grid = document.getElementById('gallery-grid');
 if (!db || !grid) return;
@@ -395,31 +396,32 @@ if (cursor) {
 var item = cursor.value;
 var wrapper = document.createElement('div');
 wrapper.className = isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
-wrapper.dataset.id = item.id;
 var media = document.createElement(item.type === 'video' ? 'video' : 'img');
 media.src = item.data;
 wrapper.appendChild(media);
-wrapper.addEventListener('click', function() {
+wrapper.addEventListener('click', (function(id, type, data, el) {
+return function() {
 if (isSelectMode) {
-if (selectedIds.has(item.id)) {
-selectedIds.delete(item.id);
-wrapper.classList.remove('selected');
+if (selectedIds.has(id)) {
+selectedIds.delete(id);
+el.classList.remove('selected');
 } else {
-selectedIds.add(item.id);
-wrapper.classList.add('selected');
+selectedIds.add(id);
+el.classList.add('selected');
 }
 document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
 } else {
 var viewer = document.getElementById('viewer-screen');
 var target = document.getElementById('viewer-content');
 target.innerHTML = "";
-var viewMedia = document.createElement(item.type === 'video' ? 'video' : 'img');
-viewMedia.src = item.data;
-if(item.type === 'video') viewMedia.controls = true;
+var viewMedia = document.createElement(type === 'video' ? 'video' : 'img');
+viewMedia.src = data;
+if(type === 'video') viewMedia.controls = true;
 target.appendChild(viewMedia);
 viewer.classList.remove('hidden');
 }
-});
+};
+})(item.id, item.type, item.data, wrapper));
 grid.appendChild(wrapper);
 cursor.continue();
 }
