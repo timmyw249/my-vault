@@ -255,39 +255,42 @@
         var pinInput = "";
         var isSelectMode = false;
         var selectedIds = new Set();
-        var db;
+        var db = null;
 
-        try {
-            if (localStorage.getItem("vault_pin")) {
-                currentPin = localStorage.getItem("vault_pin");
-            } else {
-                localStorage.setItem("vault_pin", "1234");
-            }
-        } catch (e) {
-            console.log("Local storage fallback active.");
-        }
-
-        var dbRequest = indexedDB.open("PhotoVaultDB", 1);
-        dbRequest.onupgradeneeded = function(e) {
-            db = e.target.result;
-            if (!db.objectStoreNames.contains("media")) {
-                db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
-            }
-        };
-        dbRequest.onsuccess = function(e) { 
-            db = e.target.result; 
-            loadGallery(); 
-        };
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(function(e) {});
-        }
-
+        // Load baseline setup instructions after the elements finish loading
         document.addEventListener("DOMContentLoaded", function() {
             var pinDots = document.querySelectorAll('.dot');
             var pinScreen = document.getElementById('pin-screen');
             var vaultScreen = document.getElementById('vault-screen');
 
+            // Set up fallback for localStorage tracking security parameters
+            try {
+                if (localStorage.getItem("vault_pin")) {
+                    currentPin = localStorage.getItem("vault_pin");
+                } else {
+                    localStorage.setItem("vault_pin", "1234");
+                }
+            } catch (e) {
+                console.log("Local storage isolation mode active.");
+            }
+
+            // Database setup initialization logic inside structured closure
+            var dbRequest = indexedDB.open("PhotoVaultDB", 1);
+            dbRequest.onupgradeneeded = function(e) {
+                var localDb = e.target.result;
+                if (!localDb.objectStoreNames.contains("media")) {
+                    localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+                }
+            };
+            dbRequest.onsuccess = function(e) { 
+                db = e.target.result; 
+                loadGallery(); 
+            };
+            dbRequest.onerror = function(e) {
+                console.error("Local database verification failure.");
+            };
+
+            // Setup Keypad Number Button listeners
             document.querySelectorAll('.key').forEach(function(button) {
                 button.addEventListener('click', function() {
                     var value = button.innerText;
@@ -310,20 +313,21 @@
                 var newPin = prompt("Enter your new 4-digit code:");
                 if(newPin && newPin.length === 4 && !isNaN(newPin)) {
                     localStorage.setItem("vault_pin", newPin);
-                    currentPin = newPin;
-                    alert("PIN code successfully changed!");
-                    window.location.reload();
-                } else if(newPin) {
-                    alert("Invalid entry. Must be exactly 4 numeric digits.");
-                }
-            });
-
-            function updateDots() {
-                pinDots.forEach(function(dot, index) {
 
 
 
-                                if (index < pinInput.length) dot.classList.add('filled');
+
+
+                currentPin = newPin;
+alert("PIN code successfully changed!");
+window.location.reload();
+} else if(newPin) {
+alert("Invalid entry. Must be exactly 4 numeric digits.");
+}
+});
+function updateDots() {
+pinDots.forEach(function(dot, index) {
+if (index < pinInput.length) dot.classList.add('filled');
 else dot.classList.remove('filled');
 });
 }
