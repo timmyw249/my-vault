@@ -203,75 +203,24 @@
             max-height: 100vh;
         }
     </style>
-</head>
-<body>
 
-    <!-- PIN Screen -->
-    <div id="pin-screen" class="screen active">
-        <div class="pin-container">
-            <h2 id="pin-title">Enter PIN</h2>
-            <div class="pin-dots">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-            </div>
-            <div class="pin-keypad">
-                <button class="key" onclick="pressKey('1')">1</button>
-                <button class="key" onclick="pressKey('2')">2</button>
-                <button class="key" onclick="pressKey('3')">3</button>
-                <button class="key" onclick="pressKey('4')">4</button>
-                <button class="key" onclick="pressKey('5')">5</button>
-                <button class="key" onclick="pressKey('6')">6</button>
-                <button class="key" onclick="pressKey('7')">7</button>
-                <button class="key" onclick="pressKey('8')">8</button>
-                <button class="key" onclick="pressKey('9')">9</button>
-                <button class="key action-btn" onclick="clearPin()">C</button>
-                <button class="key" onclick="pressKey('0')">0</button>
-                <button class="key action-btn" onclick="changePin()">⚙️</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Vault Screen -->
-    <div id="vault-screen" class="screen">
-        <header>
-            <h1>My Vault</h1>
-            <div class="header-actions">
-                <button id="select-mode-btn" class="icon-btn" onclick="toggleSelectMode()">Select</button>
-                <button id="delete-btn" class="icon-btn hidden text-danger" onclick="deleteSelected()">Delete</button>
-                <label for="file-upload" class="icon-btn upload-lbl">+</label>
-                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;" onchange="handleUpload(event)">
-                <button id="lock-btn" class="icon-btn" onclick="lockVault()">🔒</button>
-            </div>
-        </header>
-
-        <!-- Gallery Grid -->
-        <main id="gallery-grid" class="grid"></main>
-    </div>
-
-    <!-- Fullscreen Viewer -->
-    <div id="viewer-screen" class="viewer hidden">
-        <button id="viewer-close" class="viewer-btn close-btn" onclick="closeViewer()">&times;</button>
-        <div id="viewer-content"></div>
-    </div>
-
+    <!-- CRITICAL CORE SCRIPTS IN HEAD FOR FORCED RUNNING -->
     <script>
-        var currentPin = "1234";
-        var pinInput = "";
-        var isSelectMode = false;
-        var selectedIds = new Set();
-        var db = null;
+        window.currentPin = "1234";
+        window.pinInput = "";
+        window.isSelectMode = false;
+        window.selectedIds = new Set();
+        window.db = null;
 
-        // Immediately read from phone storage
+        // Pull saved configurations immediately
         try {
             if (localStorage.getItem("vault_pin")) {
-                currentPin = localStorage.getItem("vault_pin");
+                window.currentPin = localStorage.getItem("vault_pin");
             } else {
                 localStorage.setItem("vault_pin", "1234");
             }
         } catch (e) {
-            console.log("Storage access restriction ignored.");
+            console.log("Storage access restriction bypassed.");
         }
 
         // Setup Local Database Engine
@@ -283,23 +232,23 @@
             }
         };
         dbRequest.onsuccess = function(e) { 
-            db = e.target.result; 
+            window.db = e.target.result; 
             loadGallery(); 
         };
 
-        // UI Keypad Functions
+        // Keypad Interactions
         function pressKey(num) {
-            if (pinInput.length < 4) {
-                pinInput += num;
+            if (window.pinInput.length < 4) {
+                window.pinInput += num;
                 updateDots();
-                if (pinInput.length === 4) {
-                    setTimeout(verifyPin, 150);
+                if (window.pinInput.length === 4) {
+                    setTimeout(verifyPin, 100);
                 }
             }
         }
 
         function clearPin() {
-            pinInput = "";
+            window.pinInput = "";
             updateDots();
         }
 
@@ -307,7 +256,7 @@
             var newPin = prompt("Enter a new 4-digit code:");
             if(newPin && newPin.length === 4 && !isNaN(newPin)) {
                 localStorage.setItem("vault_pin", newPin);
-                currentPin = newPin;
+                window.currentPin = newPin;
                 alert("PIN successfully updated!");
                 window.location.reload();
             } else if(newPin) {
@@ -318,64 +267,71 @@
         function updateDots() {
             var pinDots = document.querySelectorAll('.dot');
             pinDots.forEach(function(dot, index) {
-                if (index < pinInput.length) dot.classList.add('filled');
+                if (index < window.pinInput.length) dot.classList.add('filled');
                 else dot.classList.remove('filled');
             });
         }
 
         function verifyPin() {
-if (pinInput === currentPin) {
-document.getElementById('pin-screen').classList.remove('active');
-document.getElementById('vault-screen').classList.add('active');
-} else {
-alert("Incorrect PIN code.");
-}
-pinInput = "";
-updateDots();
-}
-function lockVault() {
-document.getElementById('vault-screen').classList.remove('active');
-document.getElementById('pin-screen').classList.add('active');
-}
-// Media Upload Mechanics
-function handleUpload(e) {
-var files = Array.from(e.target.files);
-if(!db) return alert("Database initializing...");
-var transaction = db.transaction(["media"], "readwrite");
-var store = transaction.objectStore("media");
-files.forEach(function(file) {
-var reader = new FileReader();
-reader.onload = function(event) {
-store.add({
-type: file.type.startsWith('video') ? 'video' : 'image',
-data: event.target.result,
-timestamp: Date.now()
-});
-};
-reader.readAsDataURL(file);
-});
-transaction.oncomplete = function() {
-setTimeout(loadGallery, 400);
-};
-}
-// Gallery & Multi-Selection Panel
-function toggleSelectMode() {
-isSelectMode = !isSelectMode;
-document.getElementById('select-mode-btn').innerText = isSelectMode ? "Cancel" : "Select";
-document.getElementById('delete-btn').classList.add('hidden');
-selectedIds.clear();
-loadGallery();
-}
-function deleteSelected() {
-if (confirm("Permanently wipe out chosen file(s)?")) {
-var transaction = db.transaction(["media"], "readwrite");
-var store = transaction.objectStore("media");
-selectedIds.forEach(function(id) { store.delete(Number(id)); });
-transaction.oncomplete = function() {
-isSelectMode = false;
+            if (window.pinInput === window.currentPin) {
+                document.getElementById('pin-screen').classList.remove('active');
+                document.getElementById('vault-screen').classList.add('active');
+            } else {
+                alert("Incorrect PIN code.");
+            }
+            window.pinInput = "";
+            updateDots();
+        }
+
+        function lockVault() {
+            document.getElementById('vault-screen').classList.remove('active');
+            document.getElementById('pin-screen').classList.add('active');
+        }
+
+        // Media Upload Mechanics
+        function handleUpload(e) {
+            var files = Array.from(e.target.files);
+            if(!window.db) return alert("Database initializing...");
+            
+            var transaction = window.db.transaction(["media"], "readwrite");
+            var store = transaction.objectStore("media");
+
+            files.forEach(function(file) {
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    store.add({
+                        type: file.type.startsWith('video') ? 'video' : 'image',
+                        data: event.target.result,
+                        timestamp: Date.now()
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+
+            transaction.oncomplete = function() { 
+                setTimeout(loadGallery, 400); 
+            };
+        }
+
+        // Gallery & Multi-Selection Panel
+        function toggleSelectMode() {
+            window.isSelectMode = !window.isSelectMode;
+            document.getElementById('select-mode-btn').innerText = window.isSelectMode ? "Cancel" : "Select";
+            document.getElementById('delete-btn').classList.add('hidden');
+            window.selectedIds.clear();
+            loadGallery();
+        }
+
+        function deleteSelected() {
+            if (confirm("Permanently wipe out chosen file(s)?")) {
+                var transaction = window.db.transaction(["media"], "readwrite");
+                var store = transaction.objectStore("media");
+                window.selectedIds.forEach(function(id) { store.delete(Number(id)); });
+                transaction.oncomplete = function() {
+                    window.isSelectMode = false;
 document.getElementById('select-mode-btn').innerText = "Select";
 document.getElementById('delete-btn').classList.add('hidden');
-selectedIds.clear();
+window.selectedIds.clear();
 loadGallery();
 };
 }
@@ -387,29 +343,29 @@ document.getElementById('viewer-content').innerHTML = "";
 }
 function loadGallery() {
 var grid = document.getElementById('gallery-grid');
-if (!db || !grid) return;
+if (!window.db || !grid) return;
 grid.innerHTML = "";
-var store = db.transaction("media", "readonly").objectStore("media");
+var store = window.db.transaction("media", "readonly").objectStore("media");
 store.openCursor(null, "prev").onsuccess = function(e) {
 var cursor = e.target.result;
 if (cursor) {
 var item = cursor.value;
 var wrapper = document.createElement('div');
-wrapper.className = isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
+wrapper.className = window.isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
 var media = document.createElement(item.type === 'video' ? 'video' : 'img');
 media.src = item.data;
 wrapper.appendChild(media);
 wrapper.addEventListener('click', (function(id, type, data, el) {
 return function() {
-if (isSelectMode) {
-if (selectedIds.has(id)) {
-selectedIds.delete(id);
+if (window.isSelectMode) {
+if (window.selectedIds.has(id)) {
+window.selectedIds.delete(id);
 el.classList.remove('selected');
 } else {
-selectedIds.add(id);
+window.selectedIds.add(id);
 el.classList.add('selected');
 }
-document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
+document.getElementById('delete-btn').classList.toggle('hidden', window.selectedIds.size === 0);
 } else {
 var viewer = document.getElementById('viewer-screen');
 var target = document.getElementById('viewer-content');
