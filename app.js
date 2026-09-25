@@ -1,8 +1,9 @@
 // Global App Variables
-let currentPin = "1234";
-let pinInput = "";
-let isSelectMode = false;
-let selectedIds = new Set();
+var currentPin = "1234";
+var pinInput = "";
+var isSelectMode = false;
+var selectedIds = new Set();
+var db;
 
 // Safely pull PIN from local memory if it exists
 try {
@@ -16,8 +17,7 @@ try {
 }
 
 // Database Setup
-let db;
-const dbRequest = indexedDB.open("PhotoVaultDB", 1);
+var dbRequest = indexedDB.open("PhotoVaultDB", 1);
 
 dbRequest.onupgradeneeded = function(e) {
     db = e.target.result;
@@ -35,22 +35,23 @@ dbRequest.onerror = function(e) {
     console.error("Database failed to initialize.");
 };
 
-// PWA Service Worker (Bypassed if local environment restrictions occur)
+// PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration bypassed"));
+    navigator.serviceWorker.register('sw.js').catch(function(err) {
+        console.log("SW registration bypassed");
+    });
 }
 
 // Set up UI interactions safely after DOM finishes building
 document.addEventListener("DOMContentLoaded", function() {
-    const pinDots = document.querySelectorAll('.dot');
-    const pinScreen = document.getElementById('pin-screen');
-    const vaultScreen = document.getElementById('vault-screen');
-    const galleryGrid = document.getElementById('gallery-grid');
+    var pinDots = document.querySelectorAll('.dot');
+    var pinScreen = document.getElementById('pin-screen');
+    var vaultScreen = document.getElementById('vault-screen');
 
     // Attach numbers to keypad
-    document.querySelectorAll('.key').forEach(button => {
+    document.querySelectorAll('.key').forEach(function(button) {
         button.addEventListener('click', function() {
-            const value = button.innerText;
+            var value = button.innerText;
             if (!isNaN(value) && pinInput.length < 4) {
                 pinInput += value;
                 updateDots();
@@ -74,9 +75,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     function updateDots() {
-        pinDots.forEach((dot, index) => {
-            if (index < pinInput.length) dot.classList.add('filled');
-            else dot.classList.remove('filled');
+        pinDots.forEach(function(dot, index) {
+            if (index < pinInput.length) {
+                dot.classList.add('filled');
+            } else {
+                dot.classList.remove('filled');
+            }
         });
     }
 
@@ -98,14 +102,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // File Upload Engine
     document.getElementById('file-upload').addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
+        var files = Array.from(e.target.files);
         if(!db) return alert("Database not ready yet.");
         
-        const transaction = db.transaction(["media"], "readwrite");
-        const store = transaction.objectStore("media");
+        var transaction = db.transaction(["media"], "readwrite");
+        var store = transaction.objectStore("media");
 
-        files.forEach(file => {
-            const reader = new FileReader();
+        files.forEach(function(file) {
+            var reader = new FileReader();
             reader.onload = function(event) {
                 store.add({
                     type: file.type.startsWith('video') ? 'video' : 'image',
@@ -131,10 +135,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     document.getElementById('delete-btn').addEventListener('click', function() {
-        if (confirm(`Permanently wipe out these ${selectedIds.size} file(s)?`)) {
-            const transaction = db.transaction(["media"], "readwrite");
-            const store = transaction.objectStore("media");
-            selectedIds.forEach(id => store.delete(Number(id)));
+        if (confirm("Permanently wipe out these selected file(s)?")) {
+            var transaction = db.transaction(["media"], "readwrite");
+            var store = transaction.objectStore("media");
+            selectedIds.forEach(function(id) {
+                store.delete(Number(id));
+            });
 
             transaction.oncomplete = function() {
                 isSelectMode = false;
@@ -154,20 +160,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // Structural Gallery Sync
 function loadGallery() {
-    const grid = document.getElementById('gallery-grid');
+    var grid = document.getElementById('gallery-grid');
     if (!db || !grid) return;
     grid.innerHTML = "";
     
-    const store = db.transaction("media", "readonly").objectStore("media");
+    var store = db.transaction("media", "readonly").objectStore("media");
     store.openCursor(null, "prev").onsuccess = function(e) {
-        const cursor = e.target.result;
+        var cursor = e.target.result;
         if (cursor) {
-            const item = cursor.value;
-            const wrapper = document.createElement('div');
-            wrapper.className = `thumbnail-wrapper ${isSelectMode ? 'selectable' : ''}`;
+            var item = cursor.value;
+            var wrapper = document.createElement('div');
+            wrapper.className = isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
             wrapper.dataset.id = item.id;
 
-            const media = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+            var media = item.type === 'video' ? document.createElement('video') : document.createElement('img');
             media.src = item.data;
             wrapper.appendChild(media);
 
@@ -180,12 +186,16 @@ function loadGallery() {
                         selectedIds.add(item.id);
                         wrapper.classList.add('selected');
                     }
-                    document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
+                    if (selectedIds.size === 0) {
+                        document.getElementById('delete-btn').classList.add('hidden');
+                    } else {
+                        document.getElementById('delete-btn').classList.remove('hidden');
+                    }
                 } else {
-                    const viewer = document.getElementById('viewer-screen');
-                    const target = document.getElementById('viewer-content');
+                    var viewer = document.getElementById('viewer-screen');
+                    var target = document.getElementById('viewer-content');
                     target.innerHTML = "";
-                    const viewMedia = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+                    var viewMedia = item.type === 'video' ? document.createElement('video') : document.createElement('img');
                     viewMedia.src = item.data;
                     if(item.type === 'video') viewMedia.controls = true;
                     target.appendChild(viewMedia);
