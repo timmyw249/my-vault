@@ -1,43 +1,37 @@
-// IndexedDB Setup
-let db;
-const request = indexedDB.open("PhotoVaultDB", 1); 
-
-request.onupgradeneeded = (e) => {
-db = e.target.result;
-if (!db.objectStoreNames.contains("media")) {
-db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+// Safer Application State Init
+let currentPin = "1234";
+try {
+    if (localStorage.getItem("vault_pin")) {
+        currentPin = localStorage.getItem("vault_pin");
+    } else {
+        localStorage.setItem("vault_pin", "1234");
+    }
+} catch (e) {
+    console.log("Local storage restricted, using default temporary PIN 1234");
 }
-};
-request.onsuccess = (e) => { db = e.target.result; loadGallery(); }; 
 
-// Application State
-let currentPin = localStorage.getItem("vault_pin") || "1234";
-let isSettingNewPin = !localStorage.getItem("vault_pin");
+let isSettingNewPin = false; 
 let pinInput = "";
 let isSelectMode = false;
-let selectedIds = new Set(); 
+let selectedIds = new Set();
 
-if(isSettingNewPin) document.getElementById('pin-title').innerText = "Create Your 4-Digit PIN"; 
+// IndexedDB Setup
+let db;
+const request = indexedDB.open("PhotoVaultDB", 1);
 
-// Elements
-const pinDots = document.querySelectorAll('.dot');
-const pinScreen = document.getElementById('pin-screen');
-const vaultScreen = document.getElementById('vault-screen');
-const galleryGrid = document.getElementById('gallery-grid'); 
-
-// PWA Service Worker Registration
-if ('serviceWorker' in navigator) {
-navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
-} 
-
-// PIN Keypad Management
-document.querySelectorAll('.key').forEach(button => {
-button.addEventListener('click', () => {
-const value = button.innerText;
-if (!isNaN(value) && pinInput.length < 4) {
-pinInput += value;
-updateDots();
-if (pinInput.length === 4) setTimeout(verifyPin, 250);
+request.onupgradeneeded = (e) => {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("media")) {
+        db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+    }
+};
+request.onsuccess = (e) => { 
+    db = e.target.result; 
+    loadGallery(); 
+};
+request.onerror = (e) => {
+    alert("Database layout error. Please ensure you are not browsing in Private/Incognito mode.");
+};
 }
 });
 }); 
