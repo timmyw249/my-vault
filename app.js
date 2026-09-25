@@ -1,5 +1,10 @@
-// Safer Application State Init
+// Global App Variables
 let currentPin = "1234";
+let pinInput = "";
+let isSelectMode = false;
+let selectedIds = new Set();
+
+// Safely pull PIN from local memory if it exists
 try {
     if (localStorage.getItem("vault_pin")) {
         currentPin = localStorage.getItem("vault_pin");
@@ -7,191 +12,189 @@ try {
         localStorage.setItem("vault_pin", "1234");
     }
 } catch (e) {
-    console.log("Local storage restricted, using default temporary PIN 1234");
+    console.log("Storage restricted. Using temporary PIN: 1234");
 }
 
-let isSettingNewPin = false; 
-let pinInput = "";
-let isSelectMode = false;
-let selectedIds = new Set();
-
-// IndexedDB Setup
+// Database Setup
 let db;
-const request = indexedDB.open("PhotoVaultDB", 1);
+const dbRequest = indexedDB.open("PhotoVaultDB", 1);
 
-request.onupgradeneeded = (e) => {
+dbRequest.onupgradeneeded = function(e) {
     db = e.target.result;
     if (!db.objectStoreNames.contains("media")) {
         db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
     }
 };
-request.onsuccess = (e) => { 
+
+dbRequest.onsuccess = function(e) { 
     db = e.target.result; 
     loadGallery(); 
 };
-request.onerror = (e) => {
-    alert("Database layout error. Please ensure you are not browsing in Private/Incognito mode.");
+
+dbRequest.onerror = function(e) {
+    console.error("Database failed to initialize.");
 };
+
+// PWA Service Worker (Bypassed if local environment restrictions occur)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration bypassed"));
 }
+
+// Set up UI interactions safely after DOM finishes building
+document.addEventListener("DOMContentLoaded", function() {
+    const pinDots = document.querySelectorAll('.dot');
+    const pinScreen = document.getElementById('pin-screen');
+    const vaultScreen = document.getElementById('vault-screen');
+    const galleryGrid = document.getElementById('gallery-grid');
+
+    // Attach numbers to keypad
+    document.querySelectorAll('.key').forEach(button => {
+        button.addEventListener('click', function() {
+            const value = button.innerText;
+            if (!isNaN(value) && pinInput.length < 4) {
+                pinInput += value;
+                updateDots();
+                if (pinInput.length === 4) {
+                    setTimeout(verifyPin, 200);
+                }
+            }
+        });
+    });
+
+    document.getElementById('pin-clear').addEventListener('click', function() {
+        pinInput = "";
+        updateDots();
+    });
+
+    document.getElementById('pin-mode-btn').addEventListener('click', function() {
+        if(confirm("Reset vault configuration PIN? You will reset to default setup code '1234'.")) {
+            localStorage.removeItem("vault_pin");
+            window.location.reload();
+        }
+    });
+
+    function updateDots() {
+        pinDots.forEach((dot, index) => {
+            if (index < pinInput.length) dot.classList.add('filled');
+            else dot.classList.remove('filled');
+        });
+    }
+
+    function verifyPin() {
+        if (pinInput === currentPin) {
+            pinScreen.classList.remove('active');
+            vaultScreen.classList.add('active');
+        } else {
+            alert("Incorrect PIN code. Try again.");
+        }
+        pinInput = "";
+        updateDots();
+    }
+
+    document.getElementById('lock-btn').addEventListener('click', function() {
+        vaultScreen.classList.remove('active');
+        pinScreen.classList.add('active');
+    });
+
+    // File Upload Engine
+    document.getElementById('file-upload').addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        if(!db) return alert("Database not ready yet.");
+        
+        const transaction = db.transaction(["media"], "readwrite");
+        const store = transaction.objectStore("media");
+
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                store.add({
+                    type: file.type.startsWith('video') ? 'video' : 'image',
+                    data: event.target.result,
+                    timestamp: Date.now()
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        transaction.oncomplete = function() { 
+            setTimeout(loadGallery, 400); 
+        };
+    });
+
+    // Multi-Select Action Panel
+    document.getElementById('select-mode-btn').addEventListener('click', function() {
+        isSelectMode = !isSelectMode;
+        this.innerText = isSelectMode ? "Cancel" : "Select";
+        document.getElementById('delete-btn').classList.add('hidden');
+        selectedIds.clear();
+        loadGallery();
+    });
+
+    document.getElementById('delete-btn').addEventListener('click', function() {
+        if (confirm(`Permanently wipe out these ${selectedIds.size} file(s)?`)) {
+            const transaction = db.transaction(["media"], "readwrite");
+            const store = transaction.objectStore("media");
+            selectedIds.forEach(id => store.delete(Number(id)));
+
+            transaction.oncomplete = function() {
+                isSelectMode = false;
+                document.getElementById('select-mode-btn').innerText = "Select";
+                document.getElementById('delete-btn').classList.add('hidden');
+                selectedIds.clear();
+                loadGallery();
+            };
+        }
+    });
+
+    document.getElementById('viewer-close').addEventListener('click', function() {
+        document.getElementById('viewer-screen').classList.add('hidden');
+        document.getElementById('viewer-content').innerHTML = "";
+    });
 });
-}); 
 
-document.getElementById('pin-clear').addEventListener('click', () => {
-pinInput = "";
-updateDots();
-}); 
-
-document.getElementById('pin-mode-btn').addEventListener('click', () => {
-if(confirm("Do you want to change your PIN? You will need to enter your current one first.")) {
-localStorage.removeItem("vault_pin");
-window.location.reload();
-}
-}); 
-
-function updateDots() {
-pinDots.forEach((dot, index) => {
-if (index < pinInput.length) dot.classList.add('filled');
-else dot.classList.remove('filled');
-});
-} 
-
-function verifyPin() {
-if (isSettingNewPin) {
-localStorage.setItem("vault_pin", pinInput);
-currentPin = pinInput;
-isSettingNewPin = false;
-document.getElementById('pin-title').innerText = "Enter PIN";
-alert("PIN saved successfully!");
-unlockVault();
-} else if (pinInput === currentPin) {
-unlockVault();
-} else {
-alert("Incorrect PIN");
-pinInput = "";
-updateDots();
-}
-} 
-
-function unlockVault() {
-pinScreen.classList.remove('active');
-vaultScreen.classList.add('active');
-pinInput = "";
-updateDots();
-} 
-
-document.getElementById('lock-btn').addEventListener('click', () => {
-vaultScreen.classList.remove('active');
-pinScreen.classList.add('active');
-}); 
-
-// Import Media to IndexedDB
-document.getElementById('file-upload').addEventListener('change', (e) => {
-const files = Array.from(e.target.files);
-const transaction = db.transaction(["media"], "readwrite");
-const store = transaction.objectStore("media"); 
-
-files.forEach(file => {
-const reader = new FileReader();
-reader.onload = (event) => {
-store.add({
-type: file.type.startsWith('video') ? 'video' : 'image',
-data: event.target.result,
-timestamp: Date.now()
-});
-};
-reader.readAsDataURL(file);
-});
-
-transaction.oncomplete = () => { setTimeout(loadGallery, 500); };
-
-}); 
-
-// Load Gallery from Database
+// Structural Gallery Sync
 function loadGallery() {
-if (!db) return;
-galleryGrid.innerHTML = "";
-const store = db.transaction("media", "readonly").objectStore("media"); 
+    const grid = document.getElementById('gallery-grid');
+    if (!db || !grid) return;
+    grid.innerHTML = "";
+    
+    const store = db.transaction("media", "readonly").objectStore("media");
+    store.openCursor(null, "prev").onsuccess = function(e) {
+        const cursor = e.target.result;
+        if (cursor) {
+            const item = cursor.value;
+            const wrapper = document.createElement('div');
+            wrapper.className = `thumbnail-wrapper ${isSelectMode ? 'selectable' : ''}`;
+            wrapper.dataset.id = item.id;
 
-store.openCursor(null, "prev").onsuccess = (e) => {
-const cursor = e.target.result;
-if (cursor) {
-const item = cursor.value;
-const wrapper = document.createElement('div');
-wrapper.className = thumbnail-wrapper ${isSelectMode ? 'selectable' : ''};
-wrapper.dataset.id = item.id;
-    const mediaElement = item.type === 'video' ? document.createElement('video') : document.createElement('img');
-    mediaElement.src = item.data;
-    wrapper.appendChild(mediaElement);
+            const media = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+            media.src = item.data;
+            wrapper.appendChild(media);
 
-    wrapper.addEventListener('click', () => handleMediaClick(item.id, item.type, item.data, wrapper));
-    galleryGrid.appendChild(wrapper);
-    cursor.continue();
+            wrapper.addEventListener('click', function() {
+                if (isSelectMode) {
+                    if (selectedIds.has(item.id)) {
+                        selectedIds.delete(item.id);
+                        wrapper.classList.remove('selected');
+                    } else {
+                        selectedIds.add(item.id);
+                        wrapper.classList.add('selected');
+                    }
+                    document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
+                } else {
+                    const viewer = document.getElementById('viewer-screen');
+                    const target = document.getElementById('viewer-content');
+                    target.innerHTML = "";
+                    const viewMedia = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+                    viewMedia.src = item.data;
+                    if(item.type === 'video') viewMedia.controls = true;
+                    target.appendChild(viewMedia);
+                    viewer.classList.remove('hidden');
+                }
+            });
+
+            grid.appendChild(wrapper);
+            cursor.continue();
+        }
+    };
 }
-
-};
-
-} 
-
-// Click / Multi-Select Management
-function handleMediaClick(id, type, data, element) {
-if (isSelectMode) {
-if (selectedIds.has(id)) {
-selectedIds.delete(id);
-element.classList.remove('selected');
-} else {
-selectedIds.add(id);
-element.classList.add('selected');
-}
-document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
-} else {
-openFullscreen(type, data);
-}
-} 
-
-// Select Mode Toggle
-document.getElementById('select-mode-btn').addEventListener('click', function() {
-isSelectMode = !isSelectMode;
-this.innerText = isSelectMode ? "Cancel" : "Select";
-document.getElementById('delete-btn').classList.add('hidden');
-selectedIds.clear();
-loadGallery();
-}); 
-
-// Batch Deletion
-document.getElementById('delete-btn').addEventListener('click', () => {
-if (confirm(Delete ${selectedIds.size} item(s) permanently?)) {
-const transaction = db.transaction(["media"], "readwrite");
-const store = transaction.objectStore("media");
-selectedIds.forEach(id => store.delete(Number(id))); 
-
-transaction.oncomplete = () => {
-    isSelectMode = false;
-    document.getElementById('select-mode-btn').innerText = "Select";
-    document.getElementById('delete-btn').classList.add('hidden');
-    selectedIds.clear();
-    loadGallery();
-};
-
-}
-
-}); 
-
-// Fullscreen Viewer
-function openFullscreen(type, data) {
-const viewer = document.getElementById('viewer-screen');
-const container = document.getElementById('viewer-content');
-container.innerHTML = ""; 
-
-const media = document.createElement(type === 'video' ? 'video' : 'img');
-media.src = data;
-if(type === 'video') media.controls = true;
-
-container.appendChild(media);
-viewer.classList.remove('hidden');
-
-} 
-
-document.getElementById('viewer-close').addEventListener('click', () => {
-document.getElementById('viewer-screen').classList.add('hidden');
-document.getElementById('viewer-content').innerHTML = "";
-});
