@@ -214,3 +214,11 @@ function initiatePinChange() {
   showScreen('pin-screen');
   clearPin();
 }
+// Register Service Worker for absolute offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Vault offline engine ready.'))
+      .catch(err => console.log('Offline setup failed: ', err));
+  });
+}
