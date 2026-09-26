@@ -1,4 +1,3 @@
-let db;
 let currentPin = '';
 let isSelectMode = false;
 let selectedItems = new Set();
