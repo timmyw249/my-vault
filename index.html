@@ -210,9 +210,8 @@
         window.isSelectMode = false;
         window.selectedIds = new Set();
         window.db = null;
-        window.memoryBackup = []; // Fail-safe global memory array
+        window.memoryBackup = [];
 
-        // Load Baseline configurations
         try {
             if (localStorage.getItem("vault_pin")) {
                 window.currentPin = localStorage.getItem("vault_pin");
@@ -226,7 +225,6 @@
             console.log("Memory sandboxing active.");
         }
 
-        // Setup Database Core with integrated error catching loops
         try {
             var dbRequest = indexedDB.open("PhotoVaultDB", 1);
             dbRequest.onupgradeneeded = function(e) {
@@ -240,10 +238,10 @@
                 window.loadGallery(); 
             };
             dbRequest.onerror = function(e) {
-                console.log("Database fallback triggered due to Private Mode parameters.");
+                console.log("Database fallback active.");
             };
         } catch(err) {
-            console.log("IndexedDB initiation bypassed safely.");
+            console.log("IndexedDB bypassed safely.");
         }
 
         window.pressKey = function(num) {
@@ -285,7 +283,7 @@
             if (window.pinInput === window.currentPin) {
                 document.getElementById('pin-screen').classList.remove('active');
                 document.getElementById('vault-screen').classList.add('active');
-                window.loadGallery(); // Explicitly trigger layout update pass on exit
+                window.loadGallery();
             } else {
                 alert("Incorrect PIN code.");
             }
@@ -310,29 +308,29 @@
                         data: event.target.result
                     };
 
-                    // Path A: Commit to Database
                     if(window.db) {
                         try {
                             var transaction = window.db.transaction(["media"], "readwrite");
                             transaction.objectStore("media").add(newMediaItem);
                         } catch(dbErr) {
-                            console.log("Write error, routing item to alternative device flash pool.");
+                            console.log("Database write fallback.");
                         }
                     }
                     
-                    // Path B: Commit to Device Backup Array
                     window.memoryBackup.push(newMediaItem);
-                    try {localStorage.setItem("vault_backup_data", JSON.stringify(window.memoryBackup));
-} catch(storageErr) {
-console.log("Memory limit reached for this session profile.");
-}
-window.loadGallery();
-};
-reader.readAsDataURL(file);
-});
-};
-window.toggleSelectMode = function() {
-window.isSelectMode = !window.isSelectMode;
+                    try {
+                        localStorage.setItem("vault_backup_data", JSON.stringify(window.memoryBackup));
+                    } catch(storageErr) {
+                        console.log("Memory storage ceiling hit.");
+                    }
+                    
+                    window.loadGallery();
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        window.toggleSelectMode = function() {window.isSelectMode = !window.isSelectMode;
 document.getElementById('select-mode-btn').innerText = window.isSelectMode ? "Cancel" : "Select";
 document.getElementById('delete-btn').classList.add('hidden');
 window.selectedIds.clear();
@@ -340,7 +338,6 @@ window.loadGallery();
 };
 window.deleteSelected = function() {
 if (confirm("Permanently wipe out chosen file(s)?")) {
-// Delete from DB tracking
 if(window.db) {
 try {
 var transaction = window.db.transaction(["media"], "readwrite");
@@ -348,7 +345,6 @@ var store = transaction.objectStore("media");
 window.selectedIds.forEach(function(id) { store.delete(Number(id)); });
 } catch(err) {}
 }
-// Delete from Device Storage array configuration
 window.memoryBackup = window.memoryBackup.filter(function(item) {
 return !window.selectedIds.has(item.id.toString()) && !window.selectedIds.has(item.id);
 });
@@ -366,14 +362,11 @@ window.closeViewer = function() {
 document.getElementById('viewer-screen').classList.remove('active');
 document.getElementById('viewer-content').innerHTML = "";
 };
-// Unified rendering loop utilizing structural backups
 window.loadGallery = function() {
 var grid = document.getElementById('gallery-grid');
 if (!grid) return;
 grid.innerHTML = "";
-// Fallback rendering mechanism utilizing safe array
 if(window.memoryBackup.length > 0 || !window.db) {
-// Render from localized profile space
 for(var i = window.memoryBackup.length - 1; i >= 0; i--) {
 var item = window.memoryBackup[i];
 window.buildThumbnailElement(item, grid);
@@ -388,7 +381,7 @@ window.buildThumbnailElement(cursor.value, grid);
 cursor.continue();
 }
 };
-} catch(err) { console.log("DB lookup restricted."); }
+} catch(err) { console.log("DB read blocked."); }
 }
 };
 window.buildThumbnailElement = function(item, grid) {
