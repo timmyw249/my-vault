@@ -146,15 +146,19 @@ function readFileAsDataURL(file) {
   });
 }
 
-// 1. Enhanced Gallery Renderer
 function loadGallery() {
   const gallery = document.getElementById('gallery');
+  if (!gallery) return;
   gallery.innerHTML = '';
   selectedItems.clear();
-  allMediaRecords = []; // Reset local array track
+  allMediaRecords = []; 
   
+  // Guard clause to ensure db is fully loaded first
+  if (!db) return;
+
   const transaction = db.transaction(["media"], "readonly");
   const store = transaction.objectStore("media");
+  
   store.openCursor().onsuccess = (event) => {
     const cursor = event.target.result;
     if (cursor) {
@@ -177,7 +181,6 @@ function loadGallery() {
       element.src = record.data;
       wrapper.appendChild(element);
       
-      // Standalone Tap Event handler
       wrapper.addEventListener('click', () => {
         if (!isSlidingToSelect) handleItemClick(record, Number(wrapper.dataset.index), wrapper);
       });
@@ -187,31 +190,6 @@ function loadGallery() {
     }
   };
 }
-  
-  store.openCursor().onsuccess = (event) => {
-    const cursor = event.target.result;
-    if (cursor) {
-      const record = cursor.value;
-      const wrapper = document.createElement('div');
-      wrapper.className = `thumbnail-wrapper ${isSelectMode ? 'selectable' : ''}`;
-      wrapper.dataset.id = record.id;
-      
-      let element;
-      if (record.type.startsWith('video/')) {
-        element = document.createElement('video');
-        element.muted = true;
-        element.playsInline = true;
-      } else {
-        element = document.createElement('img');
-      }
-      element.src = record.data;
-      wrapper.appendChild(element);
-      
-      wrapper.addEventListener('click', () => handleItemClick(record, wrapper));
-      gallery.appendChild(wrapper);
-      cursor.continue();
-    }
-  };
 
 
 // 2. Logic for Slide-to-Select Thumbnails
