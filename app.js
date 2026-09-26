@@ -5,7 +5,7 @@ let selectedItems = new Set();
 let pinState = 'verify'; // 'verify', 'set-old', 'set-new'
 let tempNewPin = '';
 
-// Swipe & sliding selection variables (Make sure these only appear once!)
+// Swipe & sliding selection variables
 let allMediaRecords = []; 
 let currentViewerIndex = -1;
 let touchStartX = 0;
@@ -103,26 +103,36 @@ function showScreen(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
-// Updated File Storage Engine (Fixes the Safari transaction auto-commit bug)
+// Enhanced File Storage Engine with HEIC to JPEG conversion
 async function handleFiles(files) {
   const fileArray = Array.from(files);
   const recordsToSave = [];
 
-  // 1. Read all files first into memory asynchronously
   for (const file of fileArray) {
     try {
-      const dataUrl = await readFileAsDataURL(file);
+      let processedFile = file;
+      
+      if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic")) {
+        const convertedBlob = await heic2any({
+          blob: file,
+          toType: "image/jpeg",
+          quality: 0.8
+        });
+        const finalBlob = Array.isArray(convertedBlob) ? convertedBlob : convertedBlob;
+        processedFile = new File([finalBlob], file.name.replace(/\.[^/.]+\$/, ".jpg"), { type: "image/jpeg" });
+      }
+
+      const dataUrl = await readFileAsDataURL(processedFile);
       recordsToSave.push({
-        type: file.type,
+        type: processedFile.type,
         data: dataUrl,
         timestamp: Date.now()
       });
     } catch (err) {
-      console.error("Error reading file:", file.name, err);
+      console.error("Error processing file:", file.name, err);
     }
   }
 
-  // 2. Open the database transaction only after data is ready
   if (recordsToSave.length > 0) {
     const transaction = db.transaction(["media"], "readwrite");
     const store = transaction.objectStore("media");
@@ -130,13 +140,11 @@ async function handleFiles(files) {
     recordsToSave.forEach(record => store.add(record));
 
     transaction.oncomplete = () => {
-      // Reload the screen UI layout immediately once saved
       loadGallery();
     };
   }
 }
 
-// Helper utility to safely wait for file conversions
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -146,6 +154,7 @@ function readFileAsDataURL(file) {
   });
 }
 
+// Enhanced Gallery Renderer
 function loadGallery() {
   const gallery = document.getElementById('gallery');
   if (!gallery) return;
@@ -153,7 +162,6 @@ function loadGallery() {
   selectedItems.clear();
   allMediaRecords = []; 
   
-  // Guard clause to ensure db is fully loaded first
   if (!db) return;
 
   const transaction = db.transaction(["media"], "readonly");
@@ -191,8 +199,7 @@ function loadGallery() {
   };
 }
 
-
-// 2. Logic for Slide-to-Select Thumbnails
+// Slide-to-Select Logic
 const galleryEl = document.getElementById('gallery');
 
 galleryEl.addEventListener('touchstart', (e) => {
@@ -212,7 +219,6 @@ galleryEl.addEventListener('touchend', () => {
 
 function processSlideSelection(e) {
   const touch = e.touches[0];
-  // Detect exactly what element lives under the user's moving fingertip coordinate
   const target = document.elementFromPoint(touch.clientX, touch.clientY);
   const wrapper = target ? target.closest('.thumbnail-wrapper') : null;
   
@@ -258,7 +264,7 @@ function deleteSelected() {
   }
 }
 
-// 3. Enhanced Viewer (Zoom, Swipe Left, Swipe Right)
+// Enhanced Fullscreen Swipe Viewer
 function openViewer(index) {
   if (index < 0 || index >= allMediaRecords.length) return;
   currentViewerIndex = index;
@@ -280,17 +286,12 @@ function openViewer(index) {
   container.appendChild(element);
   document.getElementById('viewer').classList.remove('hidden');
 
-  // Initialize Pinch Zoom library framework automatically if it's an image
   if (!record.type.startsWith('video/')) {
-    new PinchZoom(element, {
-      draggableUnzoomed: false // Don't conflict with swiping between photos
-    });
+    new PinchZoom(element, { draggableUnzoomed: false });
   }
 }
 
-// Attach Touch Track vectors to Fullscreen Viewer for Left/Right Swiping
 const viewerEl = document.getElementById('viewer');
-
 viewerEl.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].screenX;
 }, { passive: true });
@@ -301,20 +302,14 @@ viewerEl.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 function handleSwipeGesture() {
-  const swipeThreshold = 60; // Minimum sliding length to trigger action
+  const swipeThreshold = 60;
   const difference = touchStartX - touchEndX;
 
   if (Math.abs(difference) > swipeThreshold) {
     if (difference > 0) {
-      // Swiped Left -> Load next asset file
-      if (currentViewerIndex < allMediaRecords.length - 1) {
-        openViewer(currentViewerIndex + 1);
-      }
+      if (currentViewerIndex < allMediaRecords.length - 1) openViewer(currentViewerIndex + 1);
     } else {
-      // Swiped Right -> Load previous asset file
-      if (currentViewerIndex > 0) {
-        openViewer(currentViewerIndex - 1);
-      }
+      if (currentViewerIndex > 0) openViewer(currentViewerIndex - 1);
     }
   }
 }
@@ -332,6 +327,7 @@ function initiatePinChange() {
   showScreen('pin-screen');
   clearPin();
 }
+
 // Register Service Worker for absolute offline support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
