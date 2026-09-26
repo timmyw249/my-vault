@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Photo Vault</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- PWA Capabilities for iOS -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- PWA Settings for iOS -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Vault">
 </head>
 <body>
 
-    <!-- PIN Screen -->
+    <!-- PIN Entry Screen -->
     <div id="pin-screen" class="screen active">
         <div class="pin-container">
             <h2 id="pin-title">Enter PIN</h2>
@@ -23,42 +23,43 @@
                 <span class="dot"></span>
             </div>
             <div class="pin-keypad">
-                <button class="key">1</button><button class="key">2</button><button class="key">3</button>
-                <button class="key">4</button><button class="key">5</button><button class="key">6</button>
-                <button class="key">7</button><button class="key">8</button><button class="key">9</button>
-                <button class="key action-btn" id="pin-clear">C</button>
-                <button class="key">0</button>
-                <button class="key action-btn" id="pin-mode-btn">⚙️</button>
+                <button class="key" onclick="pressKey('1')">1</button>
+                <button class="key" onclick="pressKey('2')">2</button>
+                <button class="key" onclick="pressKey('3')">3</button>
+                <button class="key" onclick="pressKey('4')">4</button>
+                <button class="key" onclick="pressKey('5')">5</button>
+                <button class="key" onclick="pressKey('6')">6</button>
+                <button class="key" onclick="pressKey('7')">7</button>
+                <button class="key" onclick="pressKey('8')">8</button>
+                <button class="key" onclick="pressKey('9')">9</button>
+                <button class="key action-btn" onclick="clearPin()">C</button>
+                <button class="key" onclick="pressKey('0')">0</button>
+                <button class="key action-btn" onclick="changePin()">⚙️</button>
             </div>
         </div>
     </div>
 
-    <!-- Main Vault Screen -->
+    <!-- Main Secure Vault View -->
     <div id="vault-screen" class="screen">
         <header>
             <h1>My Vault</h1>
             <div class="header-actions">
-                <button id="select-mode-btn" class="icon-btn">Select</button>
-                <button id="delete-btn" class="icon-btn hidden text-danger">Delete</button>
+                <button id="select-mode-btn" class="icon-btn" onclick="toggleSelectMode()">Select</button>
+                <button id="delete-btn" class="icon-btn hidden text-danger" onclick="deleteSelected()">Delete</button>
                 <label for="file-upload" class="icon-btn upload-lbl">+</label>
-                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;">
-                <button id="lock-btn" class="icon-btn">🔒</button>
+                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;" onchange="handleUpload(event)">
+                <button id="lock-btn" class="icon-btn" onclick="lockVault()">🔒</button>
             </div>
         </header>
-
-        <!-- Gallery Grid -->
         <main id="gallery-grid" class="grid"></main>
     </div>
 
-    <!-- Fullscreen Viewer -->
-    <div id="viewer-screen" class="viewer hidden">
-        <button id="viewer-close" class="viewer-btn close-btn">&times;</button>
+    <!-- Fullscreen Media Viewer Overlay -->
+    <div id="viewer-screen" class="viewer">
+        <button id="viewer-close" class="viewer-btn close-btn" onclick="closeViewer()">&times;</button>
         <div id="viewer-content"></div>
     </div>
 
     <script src="app.js"></script>
 </body>
 </html>
-
-
-    
