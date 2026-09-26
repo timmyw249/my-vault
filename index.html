@@ -65,9 +65,9 @@
     <button class="close-viewer-btn" onclick="closeViewer()">✕</button>
   </div>
 
-  <!-- Alternative High-Availability Network Scripts -->
-  <script src="https://unpkg.com"></script>
-  <script src="https://unpkg.com"></script>
-  <script src="app.js"></script>
+  <!-- Added "defer" to guarantee libraries load before app.js runs -->
+  <script src="https://unpkg.com" defer></script>
+  <script src="https://unpkg.com" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
