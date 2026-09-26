@@ -286,8 +286,20 @@ function openViewer(index) {
   container.appendChild(element);
   document.getElementById('viewer').classList.remove('hidden');
 
+  // Updated Pinch Zoom Configuration (Overrides iOS touch-action constraints)
   if (!record.type.startsWith('video/')) {
-    new PinchZoom(element, { draggableUnzoomed: false });
+    setTimeout(() => {
+      new PinchZoom(element, {
+        draggableUnzoomed: false, // Prevents conflict with left/right swiping
+        minZoom: 1,
+        maxZoom: 4,
+        tapZoomFactor: 2
+      });
+      
+      // Forces iOS Safari to drop structural selection locks during active zoom modes
+      element.style.touchAction = 'none';
+      element.parentElement.style.touchAction = 'none';
+    }, 50); // Small delay guarantees the element is fully rendered in the DOM first
   }
 }
 
