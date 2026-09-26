@@ -155,6 +155,38 @@ function loadGallery() {
   
   const transaction = db.transaction(["media"], "readonly");
   const store = transaction.objectStore("media");
+  store.openCursor().onsuccess = (event) => {
+    const cursor = event.target.result;
+    if (cursor) {
+      const record = cursor.value;
+      allMediaRecords.push(record);
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = `thumbnail-wrapper ${isSelectMode ? 'selectable' : ''}`;
+      wrapper.dataset.id = record.id;
+      wrapper.dataset.index = allMediaRecords.length - 1;
+      
+      let element;
+      if (record.type.startsWith('video/')) {
+        element = document.createElement('video');
+        element.muted = true;
+        element.playsInline = true;
+      } else {
+        element = document.createElement('img');
+      }
+      element.src = record.data;
+      wrapper.appendChild(element);
+      
+      // Standalone Tap Event handler
+      wrapper.addEventListener('click', () => {
+        if (!isSlidingToSelect) handleItemClick(record, Number(wrapper.dataset.index), wrapper);
+      });
+      
+      gallery.appendChild(wrapper);
+      cursor.continue();
+    }
+  };
+}
   
   store.openCursor().onsuccess = (event) => {
     const cursor = event.target.result;
