@@ -1,13 +1,12 @@
-const CACHE_NAME = 'vault-cache-v6'; 
+const CACHE_NAME = 'vault-cache-v7'; // Upgraded version pushes a clean memory overwrite
 const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  './pinch-zoom.js',
-  './heic2any.js',
-  './icon.png'
+  'index.html',
+  'styles.css',
+  'app.js',
+  'manifest.json',
+  'https://unpkg.com',
+  'https://unpkg.com',
+  'https://icons8.com'
 ];
 
 self.addEventListener('install', (e) => {
