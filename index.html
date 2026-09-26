@@ -4,62 +4,376 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Photo Vault</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- PWA Settings for iOS -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Vault">
-</head>
-<body>
+    
+    <style>
+        :root {
+            --bg-color: #0b0b0c;
+            --card-bg: #1c1c1e;
+            --accent-color: #0a84ff;
+            --text-color: #ffffff;
+            --danger-color: #ff453a;
+        }
 
-    <!-- PIN Entry Screen -->
-    <div id="pin-screen" class="screen active">
-        <div class="pin-container">
-            <h2 id="pin-title">Enter PIN</h2>
-            <div class="pin-dots">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-            </div>
-            <div class="pin-keypad">
-                <button class="key" onclick="pressKey('1')">1</button>
-                <button class="key" onclick="pressKey('2')">2</button>
-                <button class="key" onclick="pressKey('3')">3</button>
-                <button class="key" onclick="pressKey('4')">4</button>
-                <button class="key" onclick="pressKey('5')">5</button>
-                <button class="key" onclick="pressKey('6')">6</button>
-                <button class="key" onclick="pressKey('7')">7</button>
-                <button class="key" onclick="pressKey('8')">8</button>
-                <button class="key" onclick="pressKey('9')">9</button>
-                <button class="key action-btn" onclick="clearPin()">C</button>
-                <button class="key" onclick="pressKey('0')">0</button>
-                <button class="key action-btn" onclick="changePin()">⚙️</button>
-            </div>
-        </div>
-    </div>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
-    <!-- Main Secure Vault View -->
-    <div id="vault-screen" class="screen">
-        <header>
-            <h1>My Vault</h1>
-            <div class="header-actions">
-                <button id="select-mode-btn" class="icon-btn" onclick="toggleSelectMode()">Select</button>
-                <button id="delete-btn" class="icon-btn hidden text-danger" onclick="deleteSelected()">Delete</button>
-                <label for="file-upload" class="icon-btn upload-lbl">+</label>
-                <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;" onchange="handleUpload(event)">
-                <button id="lock-btn" class="icon-btn" onclick="lockVault()">🔒</button>
-            </div>
-        </header>
-        <main id="gallery-grid" class="grid"></main>
-    </div>
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
 
-    <!-- Fullscreen Media Viewer Overlay -->
-    <div id="viewer-screen" class="viewer">
-        <button id="viewer-close" class="viewer-btn close-btn" onclick="closeViewer()">&times;</button>
-        <div id="viewer-content"></div>
-    </div>
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            z-index: 10;
+        }
 
-    <script src="app.js"></script>
-</body>
-</html>
+        .screen.active {
+            display: flex;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            padding: 24px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2c2c2e;
+        }
+
+        h1 { font-size: 1.4rem; font-weight: 700; }
+
+        .header-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .icon-btn, .upload-lbl {
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .text-danger { color: var(--danger-color); }
+        .hidden { display: none !important; }
+
+        .grid {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+            padding: 3px;
+        }
+
+        .thumbnail-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 100%;
+            background-color: #141416;
+            overflow: hidden;
+        }
+
+        .thumbnail-wrapper img, .thumbnail-wrapper video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumbnail-wrapper.selectable::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 22px;
+            height: 22px;
+            border: 2px solid white;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+        }
+
+        .thumbnail-wrapper.selected::after {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .pin-container {
+            margin: auto;
+            text-align: center;
+            width: 280px;
+        }
+
+        .pin-dots {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .dot {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+        }
+
+        .dot.filled { background-color: #fff; }
+
+        .pin-keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .key {
+            background-color: var(--card-bg);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 72px;
+            height: 72px;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .key:active { background-color: #3a3a3c; }
+        .key.action-btn { font-size: 1.2rem; background: none; }
+
+        .viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .viewer.active {
+            display: flex;
+        }
+
+        .viewer-btn {
+            position: absolute;
+            top: 44px;
+            right: 20px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            font-size: 2rem;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            z-index: 2010;
+        }
+
+        #viewer-content img, #viewer-content video {
+            max-width: 100%;
+            max-height: 100vh;
+        }
+    </style>
+
+    <script>
+        // Force global assignments so buttons can always see them
+        window.currentPin = "1234";
+        window.pinInput = "";
+        window.isSelectMode = false;
+        window.selectedIds = new Set();
+        window.db = null;
+
+        try {
+            if (localStorage.getItem("vault_pin")) {
+                window.currentPin = localStorage.getItem("vault_pin");
+            } else {
+                localStorage.setItem("vault_pin", "1234");
+            }
+        } catch (e) {
+            console.log("Storage local boundaries bypassed.");
+        }
+
+        var dbRequest = indexedDB.open("PhotoVaultDB", 1);
+        dbRequest.onupgradeneeded = function(e) {
+            var localDb = e.target.result;
+            if (!localDb.objectStoreNames.contains("media")) {
+                localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        dbRequest.onsuccess = function(e) { 
+            window.db = e.target.result; 
+            window.loadGallery(); 
+        };
+
+        window.pressKey = function(num) {
+            if (window.pinInput.length < 4) {
+                window.pinInput += num;
+                window.updateDots();
+                if (window.pinInput.length === 4) {
+                    setTimeout(window.verifyPin, 100);
+                }
+            }
+        };
+
+        window.clearPin = function() {
+            window.pinInput = "";
+            window.updateDots();
+        };
+
+        window.changePin = function() {
+            var newPin = prompt("Enter a new 4-digit code:");
+            if(newPin && newPin.length === 4 && !isNaN(newPin)) {
+                localStorage.setItem("vault_pin", newPin);
+                window.currentPin = newPin;
+                alert("PIN successfully updated!");
+                window.location.reload();
+            } else if(newPin) {
+                alert("Invalid configuration code. Please use 4 numbers.");
+            }
+        };
+
+        window.updateDots = function() {
+            var pinDots = document.querySelectorAll('.dot');
+            pinDots.forEach(function(dot, index) {
+                if (index < window.pinInput.length) dot.classList.add('filled');
+                else dot.classList.remove('filled');
+            });
+        };
+
+        window.verifyPin = function() {
+            if (window.pinInput === window.currentPin) {
+                document.getElementById('pin-screen').classList.remove('active');
+                document.getElementById('vault-screen').classList.add('active');
+            } else {
+                alert("Incorrect PIN code.");
+            }
+            window.pinInput = "";
+            window.updateDots();
+        };
+
+        window.lockVault = function() {
+            document.getElementById('vault-screen').classList.remove('active');
+            document.getElementById('pin-screen').classList.add('active');
+        };
+
+        window.handleUpload = function(e) {
+            var files = Array.from(e.target.files);
+            if(!window.db) return alert("Database initializing...");
+            
+            var transaction = window.db.transaction(["media"], "readwrite");
+            var store = transaction.objectStore("media");
+
+            files.forEach(function(file) {
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    store.add({
+                        type: file.type.startsWith('video') ? 'video' : 'image',
+                        data: event.target.result,
+                        timestamp: Date.now()
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+
+            transaction.oncomplete = function() { 
+                setTimeout(window.loadGallery, 400); 
+            };
+        };
+
+        window.toggleSelectMode = function() {
+            window.isSelectMode = !window.isSelectMode;
+            document.getElementById('select-mode-btn').innerText = window.isSelectMode ? "Cancel" : "Select";
+            document.getElementById('delete-btn').classList.add('hidden');
+            window.selectedIds.clear();
+            window.loadGallery();
+        };
+
+        window.deleteSelected = function() {
+            if (confirm("Permanently wipe out chosen file(s)?")) {
+                var transaction = window.db.transaction(["media"], "readwrite");
+                var store = transaction.objectStore("media");
+                window.selectedIds.forEach(function(id) { store.delete(Number(id)); });
+                transaction.oncomplete = function() {
+                    window.isSelectMode = false;
+                    document.getElementById('select-mode-btn').innerText = "Select";
+document.getElementById('delete-btn').classList.add('hidden');
+window.selectedIds.clear();
+window.loadGallery();
+};
+}
+};
+window.closeViewer = function() {
+document.getElementById('viewer-screen').classList.remove('active');
+document.getElementById('viewer-content').innerHTML = "";
+};
+window.loadGallery = function() {
+var grid = document.getElementById('gallery-grid');
+if (!window.db || !grid) return;
+grid.innerHTML = "";
+var store = window.db.transaction("media", "readonly").objectStore("media");
+store.openCursor(null, "prev").onsuccess = function(e) {
+var cursor = e.target.result;
+if (cursor) {
+var item = cursor.value;
+var wrapper = document.createElement('div');
+wrapper.className = window.isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
+var media = document.createElement(item.type === 'video' ? 'video' : 'img');
+media.src = item.data;
+wrapper.appendChild(media);
+wrapper.addEventListener('click', (function(id, type, data, el) {
+return function() {
+if (window.isSelectMode) {
+if (window.selectedIds.has(id)) {
+window.selectedIds.delete(id);
+el.classList.remove('selected');
+} else {
+window.selectedIds.add(id);
+el.classList.add('selected');
+}
+document.getElementById('delete-btn').classList.toggle('hidden', window.selectedIds.size === 0);
+} else {
+var viewer = document.getElementById('viewer-screen');
+var target = document.getElementById('viewer-content');
+target.innerHTML = "";
+var viewMedia = document.createElement(type === 'video' ? 'video' : 'img');
+viewMedia.src = data;
+if(type === 'video') viewMedia.controls = true;
+target.appendChild(viewMedia);
+viewer.classList.add('active');
+}
+};
+})(item.id, item.type, item.data, wrapper));
+grid.appendChild(wrapper);
+cursor.continue();
+}
+};
+};
