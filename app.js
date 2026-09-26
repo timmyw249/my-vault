@@ -5,6 +5,13 @@ let selectedItems = new Set();
 let pinState = 'verify'; // 'verify', 'set-old', 'set-new'
 let tempNewPin = '';
 
+// State management variables for tracking swipes and slide-selects
+let allMediaRecords = []; 
+let currentViewerIndex = -1;
+let touchStartX = 0;
+let touchEndX = 0;
+let isSlidingToSelect = false;
+
 // Initialize IndexedDB Storage
 const request = indexedDB.open("VaultDB", 1);
 request.onupgradeneeded = (e) => {
@@ -139,10 +146,12 @@ function readFileAsDataURL(file) {
   });
 }
 
+// 1. Enhanced Gallery Renderer
 function loadGallery() {
   const gallery = document.getElementById('gallery');
   gallery.innerHTML = '';
   selectedItems.clear();
+  allMediaRecords = []; // Reset local array track
   
   const transaction = db.transaction(["media"], "readonly");
   const store = transaction.objectStore("media");
