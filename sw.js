@@ -1,41 +1,30 @@
-const CACHE_NAME = 'vault-cache-v2'; // Changed version to force an update
+const CACHE_NAME = 'vault-cache-v3'; 
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json',
+  './pinch-zoom.js',
+  './heic2any.js',
+  './icon.png'
 ];
 
-// Install Event
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    .then(() => self.skipWaiting())
   );
 });
 
-// Activate Event
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(
+      keys.map((key) => { if (key !== CACHE_NAME) return caches.delete(key); })
+    )).then(() => self.clients.claim())
   );
 });
 
-// Fetch Event
 self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
-    })
-  );
+  e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
 });
