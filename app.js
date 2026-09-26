@@ -214,8 +214,40 @@ function loadGallery() {
   };
 }
 
-// Interactive Features
-function handleItemClick(record, wrapper) {
+// 2. Logic for Slide-to-Select Thumbnails
+const galleryEl = document.getElementById('gallery');
+
+galleryEl.addEventListener('touchstart', (e) => {
+  if (!isSelectMode) return;
+  isSlidingToSelect = true;
+  processSlideSelection(e);
+});
+
+galleryEl.addEventListener('touchmove', (e) => {
+  if (!isSelectMode || !isSlidingToSelect) return;
+  processSlideSelection(e);
+});
+
+galleryEl.addEventListener('touchend', () => {
+  setTimeout(() => { isSlidingToSelect = false; }, 50);
+});
+
+function processSlideSelection(e) {
+  const touch = e.touches[0];
+  // Detect exactly what element lives under the user's moving fingertip coordinate
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  const wrapper = target ? target.closest('.thumbnail-wrapper') : null;
+  
+  if (wrapper) {
+    const id = Number(wrapper.dataset.id);
+    if (!selectedItems.has(id)) {
+      selectedItems.add(id);
+      wrapper.classList.add('selected');
+    }
+  }
+}
+
+function handleItemClick(record, index, wrapper) {
   if (isSelectMode) {
     if (selectedItems.has(record.id)) {
       selectedItems.delete(record.id);
@@ -225,7 +257,7 @@ function handleItemClick(record, wrapper) {
       wrapper.classList.add('selected');
     }
   } else {
-    openViewer(record);
+    openViewer(index);
   }
 }
 
