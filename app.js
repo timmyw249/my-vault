@@ -344,6 +344,7 @@ function handleSwipeGesture() {
 function closeViewer() {
   document.getElementById('viewer').classList.add('hidden');
   document.getElementById('viewer-content').innerHTML = '';
+  currentViewerIndex = -1;
 }
 
 function openSettings() { showScreen('settings-screen'); }
