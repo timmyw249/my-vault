@@ -7,7 +7,7 @@ const ASSETS = [
   './manifest.json',
   'https://jsdelivr.net',
   'https://jsdelivr.net',
-  'https://flaticon.com'
+  'https://icons8.com'
 ];
 
 // Install Event - Caches essential UI files
