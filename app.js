@@ -96,26 +96,47 @@ function showScreen(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
-// File Storage Engine
-function handleFiles(files) {
-  const transaction = db.transaction(["media"], "readwrite");
-  const store = transaction.objectStore("media");
+// Updated File Storage Engine (Fixes the Safari transaction auto-commit bug)
+async function handleFiles(files) {
+  const fileArray = Array.from(files);
+  const recordsToSave = [];
 
-  Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      store.add({
+  // 1. Read all files first into memory asynchronously
+  for (const file of fileArray) {
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      recordsToSave.push({
         type: file.type,
-        data: e.target.result,
+        data: dataUrl,
         timestamp: Date.now()
       });
+    } catch (err) {
+      console.error("Error reading file:", file.name, err);
+    }
+  }
+
+  // 2. Open the database transaction only after data is ready
+  if (recordsToSave.length > 0) {
+    const transaction = db.transaction(["media"], "readwrite");
+    const store = transaction.objectStore("media");
+
+    recordsToSave.forEach(record => store.add(record));
+
+    transaction.oncomplete = () => {
+      // Reload the screen UI layout immediately once saved
+      loadGallery();
     };
+  }
+}
+
+// Helper utility to safely wait for file conversions
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(e);
     reader.readAsDataURL(file);
   });
-
-  transaction.oncomplete = () => {
-    setTimeout(loadGallery, 300);
-  };
 }
 
 function loadGallery() {
