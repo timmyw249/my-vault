@@ -212,7 +212,7 @@ function loadGallery() {
       cursor.continue();
     }
   };
-}
+
 
 // 2. Logic for Slide-to-Select Thumbnails
 const galleryEl = document.getElementById('gallery');
