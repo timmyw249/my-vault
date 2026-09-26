@@ -5,6 +5,8 @@ const ASSETS = [
   './styles.css',
   './app.js',
   './manifest.json',
+  'https://jsdelivr.net',
+  'https://jsdelivr.net',
   'https://flaticon.com'
 ];
 
@@ -40,3 +42,5 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
+
+
