@@ -104,7 +104,7 @@ const cursor = e.target.result;
 if (cursor) {
 const item = cursor.value;
 const wrapper = document.createElement('div');
-wrapper.className = thumbnail-wrapper ${isSelectMode ? 'selectable' : ''};
+wrapper.className = thumbnail-wrapper {isSelectMode ? 'selectable' : ''};
 wrapper.dataset.id = item.id;
     const mediaElement = item.type === 'video' ? document.createElement('video') : document.createElement('img');
     mediaElement.src = item.data;
