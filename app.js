@@ -1,90 +1,96 @@
-// IndexedDB Setup
-let db;
-const request = indexedDB.open("PhotoVaultDB", 1);
-request.onupgradeneeded = (e) => {
-db = e.target.result;
-if (!db.objectStoreNames.contains("media")) {
-db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+var currentPin = "1234";
+var pinInput = "";
+var isSelectMode = false;
+var selectedIds = new Set();
+var db = null; 
+
+try {
+if (localStorage.getItem("vault_pin")) {
+currentPin = localStorage.getItem("vault_pin");
+} else {
+localStorage.setItem("vault_pin", "1234");
+}
+} catch (e) {
+console.log("Local browser privacy lock active.");
+} 
+
+var dbRequest = indexedDB.open("PhotoVaultDB", 1);
+dbRequest.onupgradeneeded = function(e) {
+var localDb = e.target.result;
+if (!localDb.objectStoreNames.contains("media")) {
+localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
 }
 };
-request.onsuccess = (e) => { db = e.target.result; loadGallery(); };
-// Application State
-let currentPin = localStorage.getItem("vault_pin") || "1234";
-let isSettingNewPin = !localStorage.getItem("vault_pin");
-let pinInput = "";
-let isSelectMode = false;
-let selectedIds = new Set();
-if(isSettingNewPin) document.getElementById('pin-title').innerText = "Create Your 4-Digit PIN";
-// Elements
-const pinDots = document.querySelectorAll('.dot');
-const pinScreen = document.getElementById('pin-screen');
-const vaultScreen = document.getElementById('vault-screen');
-const galleryGrid = document.getElementById('gallery-grid');
-// PWA Service Worker Registration
+dbRequest.onsuccess = function(e) {
+db = e.target.result;
+loadGallery();
+}; 
+
 if ('serviceWorker' in navigator) {
-navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
-}
-// PIN Keypad Management
-document.querySelectorAll('.key').forEach(button => {
-button.addEventListener('click', () => {
-const value = button.innerText;
-if (!isNaN(value) && pinInput.length < 4) {
-pinInput += value;
+navigator.serviceWorker.register('sw.js').catch(function(e) {});
+} 
+
+function pressKey(num) {
+if (pinInput.length < 4) {
+pinInput += num;
 updateDots();
-if (pinInput.length === 4) setTimeout(verifyPin, 250);
+if (pinInput.length === 4) {
+setTimeout(verifyPin, 100);
 }
-});
-});
-document.getElementById('pin-clear').addEventListener('click', () => {
+}
+} 
+
+function clearPin() {
 pinInput = "";
 updateDots();
-});
-document.getElementById('pin-mode-btn').addEventListener('click', () => {
-if(confirm("Do you want to change your PIN? You will need to enter your current one first.")) {
-localStorage.removeItem("vault_pin");
+} 
+
+function changePin() {
+var newPin = prompt("Enter a new 4-digit code:");
+if(newPin && newPin.length === 4 && !isNaN(newPin)) {
+localStorage.setItem("vault_pin", newPin);
+currentPin = newPin;
+alert("PIN updated!");
 window.location.reload();
+} else if(newPin) {
+alert("Invalid layout. PIN must be 4 numbers.");
 }
-});
+} 
+
 function updateDots() {
-pinDots.forEach((dot, index) => {
+var pinDots = document.querySelectorAll('.dot');
+pinDots.forEach(function(dot, index) {
 if (index < pinInput.length) dot.classList.add('filled');
 else dot.classList.remove('filled');
 });
-}
+} 
+
 function verifyPin() {
-if (isSettingNewPin) {
-localStorage.setItem("vault_pin", pinInput);
-currentPin = pinInput;
-isSettingNewPin = false;
-document.getElementById('pin-title').innerText = "Enter PIN";
-alert("PIN saved successfully!");
-unlockVault();
-} else if (pinInput === currentPin) {
-unlockVault();
+if (pinInput === currentPin) {
+document.getElementById('pin-screen').classList.remove('active');
+document.getElementById('vault-screen').classList.add('active');
 } else {
-alert("Incorrect PIN");
+alert("Incorrect PIN code.");
+}
 pinInput = "";
 updateDots();
-}
-}
-function unlockVault() {
-pinScreen.classList.remove('active');
-vaultScreen.classList.add('active');
-pinInput = "";
-updateDots();
-}
-document.getElementById('lock-btn').addEventListener('click', () => {
-vaultScreen.classList.remove('active');
-pinScreen.classList.add('active');
-});
-// Import Media to IndexedDB
-document.getElementById('file-upload').addEventListener('change', (e) => {
-const files = Array.from(e.target.files);
-const transaction = db.transaction(["media"], "readwrite");
-const store = transaction.objectStore("media");
-files.forEach(file => {
-const reader = new FileReader();
-reader.onload = (event) => {
+} 
+
+function lockVault() {
+document.getElementById('vault-screen').classList.remove('active');
+document.getElementById('pin-screen').classList.add('active');
+} 
+
+function handleUpload(e) {
+var files = Array.from(e.target.files);
+if(!db) return alert("Storage loading..."); 
+
+var transaction = db.transaction(["media"], "readwrite");
+var store = transaction.objectStore("media");
+
+files.forEach(function(file) {
+var reader = new FileReader();
+reader.onload = function(event) {
 store.add({
 type: file.type.startsWith('video') ? 'video' : 'image',
 data: event.target.result,
@@ -93,76 +99,85 @@ timestamp: Date.now()
 };
 reader.readAsDataURL(file);
 });
-transaction.oncomplete = () => { setTimeout(loadGallery, 500); };});
-// Load Gallery from Database
-function loadGallery() {
-if (!db) return;
-galleryGrid.innerHTML = "";
-const store = db.transaction("media", "readonly").objectStore("media");
-store.openCursor(null, "prev").onsuccess = (e) => {
-const cursor = e.target.result;
-if (cursor) {
-const item = cursor.value;
-const wrapper = document.createElement('div');
-wrapper.className = thumbnail-wrapper ${isSelectMode ? 'selectable' : ''};
-wrapper.dataset.id = item.id;
-    const mediaElement = item.type === 'video' ? document.createElement('video') : document.createElement('img');
-    mediaElement.src = item.data;
-    wrapper.appendChild(mediaElement);
 
-    wrapper.addEventListener('click', () => handleMediaClick(item.id, item.type, item.data, wrapper));
-    galleryGrid.appendChild(wrapper);
-    cursor.continue();
-}
-};}
-// Click / Multi-Select Management
-function handleMediaClick(id, type, data, element) {
-if (isSelectMode) {
-if (selectedIds.has(id)) {
-selectedIds.delete(id);
-element.classList.remove('selected');
-} else {
-selectedIds.add(id);
-element.classList.add('selected');
-}
-document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
-} else {
-openFullscreen(type, data);
-}
-}
-// Select Mode Toggle
-document.getElementById('select-mode-btn').addEventListener('click', function() {
+transaction.oncomplete = function() {
+setTimeout(loadGallery, 400);
+};
+
+} 
+
+function toggleSelectMode() {
 isSelectMode = !isSelectMode;
-this.innerText = isSelectMode ? "Cancel" : "Select";
+document.getElementById('select-mode-btn').innerText = isSelectMode ? "Cancel" : "Select";
 document.getElementById('delete-btn').classList.add('hidden');
 selectedIds.clear();
 loadGallery();
-});
-// Batch Deletion
-document.getElementById('delete-btn').addEventListener('click', () => {
-if (confirm(Delete ${selectedIds.size} item(s) permanently?)) {
-const transaction = db.transaction(["media"], "readwrite");
-const store = transaction.objectStore("media");
-selectedIds.forEach(id => store.delete(Number(id)));
-transaction.oncomplete = () => {
-    isSelectMode = false;
-    document.getElementById('select-mode-btn').innerText = "Select";
-    document.getElementById('delete-btn').classList.add('hidden');
-    selectedIds.clear();
-    loadGallery();
+} 
+
+function deleteSelected() {
+if (confirm("Permanently wipe out item(s)?")) {
+var transaction = db.transaction(["media"], "readwrite");
+var store = transaction.objectStore("media");
+selectedIds.forEach(function(id) { store.delete(Number(id)); });
+transaction.oncomplete = function() {
+isSelectMode = false;
+document.getElementById('select-mode-btn').innerText = "Select";
+document.getElementById('delete-btn').classList.add('hidden');
+selectedIds.clear();
+loadGallery();
 };
-}});
-// Fullscreen Viewer
-function openFullscreen(type, data) {
-const viewer = document.getElementById('viewer-screen');
-const container = document.getElementById('viewer-content');
-container.innerHTML = "";
-const media = document.createElement(type === 'video' ? 'video' : 'img');
-media.src = data;
-if(type === 'video') media.controls = true;
-container.appendChild(media);
-viewer.classList.remove('hidden');}
-document.getElementById('viewer-close').addEventListener('click', () => {
-document.getElementById('viewer-screen').classList.add('hidden');
+}
+} 
+
+function closeViewer() {
+document.getElementById('viewer-screen').classList.remove('active');
 document.getElementById('viewer-content').innerHTML = "";
-});
+} 
+
+function loadGallery() {
+var grid = document.getElementById('gallery-grid');
+if (!db || !grid) return;
+grid.innerHTML = ""; 
+
+var store = db.transaction("media", "readonly").objectStore("media");
+store.openCursor(null, "prev").onsuccess = function(e) {
+var cursor = e.target.result;
+if (cursor) {
+var item = cursor.value;
+var wrapper = document.createElement('div');
+wrapper.className = isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
+    var media = document.createElement(item.type === 'video' ? 'video' : 'img');
+    media.src = item.data;
+    wrapper.appendChild(media);
+
+    wrapper.addEventListener('click', (function(id, type, data, el) {
+        return function() {
+            if (isSelectMode) {
+                if (selectedIds.has(id)) {
+                    selectedIds.delete(id);
+                    el.classList.remove('selected');
+                } else {
+                    selectedIds.add(id);
+                    el.classList.add('selected');
+                }
+                document.getElementById('delete-btn').classList.toggle('hidden', selectedIds.size === 0);
+            } else {
+                var viewer = document.getElementById('viewer-screen');
+                var target = document.getElementById('viewer-content');
+                target.innerHTML = "";
+                var viewMedia = document.createElement(type === 'video' ? 'video' : 'img');
+                viewMedia.src = data;
+                if(type === 'video') viewMedia.controls = true;
+                target.appendChild(viewMedia);
+                viewer.classList.add('active');
+            }
+        };
+    })(item.id, item.type, item.data, wrapper));
+
+    grid.appendChild(wrapper);
+    cursor.continue();
+}
+
+};
+
+}
