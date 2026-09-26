@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-cache-v1';
+const CACHE_NAME = 'vault-cache-v2'; // Changed version to force an update
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
   'https://icons8.com'
 ];
 
-// Install Event - Caches essential UI files
+// Install Event
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -19,7 +19,7 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// Activate Event - Cleans up old caches if you update code later
+// Activate Event
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -34,7 +34,7 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Fetch Event - Serves assets from cache instantly when offline
+// Fetch Event
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
@@ -42,5 +42,3 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
-
-
