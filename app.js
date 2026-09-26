@@ -1,3 +1,4 @@
+let currentPin = '';
 let isSelectMode = false;
 let selectedItems = new Set();
 let pinState = 'verify'; // 'verify', 'set-old', 'set-new'
