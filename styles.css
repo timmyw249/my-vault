@@ -111,3 +111,24 @@ header button.danger { background: #dc3545; }
   border: none; color: white;
   font-size: 20px; padding: 10px 15px; border-radius: 50%;
 }
+
+/* Disable default iOS browser dragging behaviors during slide-to-select */
+.grid {
+  touch-action: none; 
+}
+
+/* Ensure the viewer content container can slide cleanly */
+#viewer-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease-out;
+}
+
+/* Fix pinch zoom viewport wrapping constraints */
+.pinch-zoom-container {
+  width: 100% !important;
+  height: 100% !important;
+}
