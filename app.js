@@ -1,10 +1,11 @@
+let db;
 let currentPin = '';
 let isSelectMode = false;
 let selectedItems = new Set();
 let pinState = 'verify'; // 'verify', 'set-old', 'set-new'
 let tempNewPin = '';
 
-// State management variables for tracking swipes and slide-selects
+// Swipe & sliding selection variables (Make sure these only appear once!)
 let allMediaRecords = []; 
 let currentViewerIndex = -1;
 let touchStartX = 0;
