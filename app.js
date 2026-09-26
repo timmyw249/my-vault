@@ -280,9 +280,15 @@ function deleteSelected() {
   }
 }
 
-function openViewer(record) {
+// 3. Enhanced Viewer (Zoom, Swipe Left, Swipe Right)
+function openViewer(index) {
+  if (index < 0 || index >= allMediaRecords.length) return;
+  currentViewerIndex = index;
+  const record = allMediaRecords[index];
+  
   const container = document.getElementById('viewer-content');
   container.innerHTML = '';
+  
   let element;
   if (record.type.startsWith('video/')) {
     element = document.createElement('video');
@@ -292,8 +298,47 @@ function openViewer(record) {
     element = document.createElement('img');
   }
   element.src = record.data;
+  
   container.appendChild(element);
   document.getElementById('viewer').classList.remove('hidden');
+
+  // Initialize Pinch Zoom library framework automatically if it's an image
+  if (!record.type.startsWith('video/')) {
+    new PinchZoom(element, {
+      draggableUnzoomed: false // Don't conflict with swiping between photos
+    });
+  }
+}
+
+// Attach Touch Track vectors to Fullscreen Viewer for Left/Right Swiping
+const viewerEl = document.getElementById('viewer');
+
+viewerEl.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+}, { passive: true });
+
+viewerEl.addEventListener('touchend', (e) => {
+  touchEndX = e.changedTouches[0].screenX;
+  handleSwipeGesture();
+}, { passive: true });
+
+function handleSwipeGesture() {
+  const swipeThreshold = 60; // Minimum sliding length to trigger action
+  const difference = touchStartX - touchEndX;
+
+  if (Math.abs(difference) > swipeThreshold) {
+    if (difference > 0) {
+      // Swiped Left -> Load next asset file
+      if (currentViewerIndex < allMediaRecords.length - 1) {
+        openViewer(currentViewerIndex + 1);
+      }
+    } else {
+      // Swiped Right -> Load previous asset file
+      if (currentViewerIndex > 0) {
+        openViewer(currentViewerIndex - 1);
+      }
+    }
+  }
 }
 
 function closeViewer() {
