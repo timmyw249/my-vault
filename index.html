@@ -1,416 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Photo Vault</title>
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Vault">
-    
-    <style>
-        :root {
-            --bg-color: #0b0b0c;
-            --card-bg: #1c1c1e;
-            --accent-color: #0a84ff;
-            --text-color: #ffffff;
-            --danger-color: #ff453a;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Photo Vault</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <!-- iOS Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+  <!-- PIN Screen -->
+  <div id="pin-screen" class="screen flex-center">
+    <div class="card">
+      <h2 id="pin-title">Enter Vault PIN</h2>
+      <div class="dots-container">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="numpad">
+        <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
+        <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
+        <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
+        <button onclick="pressKey('C')">C</button><button onclick="pressKey('0')">0</button><button onclick="clearPin()">Clear</button>
+      </div>
+    </div>
+  </div>
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-        }
+  <!-- Main Vault Dashboard -->
+  <div id="vault-screen" class="screen hidden">
+    <header>
+      <h1>My Vault</h1>
+      <div class="actions">
+        <button id="multi-select-btn" onclick="toggleSelectMode()">Select</button>
+        <button id="delete-btn" class="danger hidden" onclick="deleteSelected()">Delete</button>
+        <button onclick="openSettings()">⚙️</button>
+      </div>
+    </header>
 
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            flex-direction: column;
-            background-color: var(--bg-color);
-            z-index: 10;
-        }
+    <div id="gallery" class="grid"></div>
 
-        .screen.active {
-            display: flex;
-        }
+    <label class="fab-upload">
+      +
+      <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="handleFiles(this.files)" style="display:none;">
+    </label>
+  </div>
 
-        header {
-            background-color: var(--card-bg);
-            padding: 24px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2c2c2e;
-        }
+  <!-- Settings View -->
+  <div id="settings-screen" class="screen hidden">
+    <header>
+      <button onclick="showScreen('vault-screen')">← Back</button>
+      <h1>Settings</h1>
+    </header>
+    <div class="settings-content">
+      <button onclick="initiatePinChange()">Change 4-Digit PIN</button>
+    </div>
+  </div>
 
-        h1 { font-size: 1.4rem; font-weight: 700; }
+  <!-- Fullscreen Viewer -->
+  <div id="viewer" class="hidden" onclick="closeViewer()">
+    <div id="viewer-content" onclick="event.stopPropagation()"></div>
+    <button class="close-viewer-btn" onclick="closeViewer()">✕</button>
+  </div>
 
-        .header-actions {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-        }
-
-        .icon-btn, .upload-lbl {
-            background: none;
-            border: none;
-            color: var(--accent-color);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .text-danger { color: var(--danger-color); }
-        .hidden { display: none !important; }
-
-        .grid {
-            flex: 1;
-            overflow-y: auto;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 3px;
-            padding: 3px;
-        }
-
-        .thumbnail-wrapper {
-            position: relative;
-            width: 100%;
-            padding-top: 100%;
-            background-color: #141416;
-            overflow: hidden;
-        }
-
-        .thumbnail-wrapper img, .thumbnail-wrapper video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .thumbnail-wrapper.selectable::after {
-            content: '';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 22px;
-            height: 22px;
-            border: 2px solid white;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.4);
-        }
-
-        .thumbnail-wrapper.selected::after {
-            background: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        .pin-container {
-            margin: auto;
-            text-align: center;
-            width: 280px;
-        }
-
-        .pin-dots {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 30px 0;
-        }
-
-        .dot {
-            width: 14px;
-            height: 14px;
-            border: 2px solid #fff;
-            border-radius: 50%;
-        }
-
-        .dot.filled { background-color: #fff; }
-
-        .pin-keypad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-        }
-
-        .key {
-            background-color: var(--card-bg);
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 72px;
-            height: 72px;
-            font-size: 1.8rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-
-        .key:active { background-color: #3a3a3c; }
-        .key.action-btn { font-size: 1.2rem; background: none; }
-
-        .viewer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 2000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .viewer.active {
-            display: flex;
-        }
-
-        .viewer-btn {
-            position: absolute;
-            top: 44px;
-            right: 20px;
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            border: none;
-            font-size: 2rem;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            z-index: 2010;
-        }
-
-        #viewer-content img, #viewer-content video {
-            max-width: 100%;
-            max-height: 100vh;
-        }
-    </style>
-
-    <script>
-        window.currentPin = "1234";
-        window.pinInput = "";
-        window.isSelectMode = false;
-        window.selectedIds = new Set();
-        window.db = null;
-        window.memoryBackup = [];
-
-        try {
-            if (localStorage.getItem("vault_pin")) {
-                window.currentPin = localStorage.getItem("vault_pin");
-            } else {
-                localStorage.setItem("vault_pin", "1234");
-            }
-            if (localStorage.getItem("vault_backup_data")) {
-                window.memoryBackup = JSON.parse(localStorage.getItem("vault_backup_data"));
-            }
-        } catch (e) {
-            console.log("Memory sandboxing active.");
-        }
-
-        try {
-            var dbRequest = indexedDB.open("PhotoVaultDB", 1);
-            dbRequest.onupgradeneeded = function(e) {
-                var localDb = e.target.result;
-                if (!localDb.objectStoreNames.contains("media")) {
-                    localDb.createObjectStore("media", { keyPath: "id", autoIncrement: true });
-                }
-            };
-            dbRequest.onsuccess = function(e) { 
-                window.db = e.target.result; 
-                window.loadGallery(); 
-            };
-            dbRequest.onerror = function(e) {
-                console.log("Database fallback active.");
-            };
-        } catch(err) {
-            console.log("IndexedDB bypassed safely.");
-        }
-
-        window.pressKey = function(num) {
-            if (window.pinInput.length < 4) {
-                window.pinInput += num;
-                window.updateDots();
-                if (window.pinInput.length === 4) {
-                    setTimeout(window.verifyPin, 100);
-                }
-            }
-        };
-
-        window.clearPin = function() {
-            window.pinInput = "";
-            window.updateDots();
-        };
-
-        window.changePin = function() {
-            var newPin = prompt("Enter a new 4-digit code:");
-            if(newPin && newPin.length === 4 && !isNaN(newPin)) {
-                localStorage.setItem("vault_pin", newPin);
-                window.currentPin = newPin;
-                alert("PIN successfully updated!");
-                window.location.reload();
-            } else if(newPin) {
-                alert("Invalid configuration code. Please use 4 numbers.");
-            }
-        };
-
-        window.updateDots = function() {
-            var pinDots = document.querySelectorAll('.dot');
-            pinDots.forEach(function(dot, index) {
-                if (index < window.pinInput.length) dot.classList.add('filled');
-                else dot.classList.remove('filled');
-            });
-        };
-
-        window.verifyPin = function() {
-            if (window.pinInput === window.currentPin) {
-                document.getElementById('pin-screen').classList.remove('active');
-                document.getElementById('vault-screen').classList.add('active');
-                window.loadGallery();
-            } else {
-                alert("Incorrect PIN code.");
-            }
-            window.pinInput = "";
-            window.updateDots();
-        };
-
-        window.lockVault = function() {
-            document.getElementById('vault-screen').classList.remove('active');
-            document.getElementById('pin-screen').classList.add('active');
-        };
-
-        window.handleUpload = function(e) {
-            var files = Array.from(e.target.files);
-            
-            files.forEach(function(file) {
-                var reader = new FileReader();
-                reader.onload = function(event) {
-                    var newMediaItem = {
-                        id: Date.now() + Math.random(),
-                        type: file.type.startsWith('video') ? 'video' : 'image',
-                        data: event.target.result
-                    };
-
-                    if(window.db) {
-                        try {
-                            var transaction = window.db.transaction(["media"], "readwrite");
-                            transaction.objectStore("media").add(newMediaItem);
-                        } catch(dbErr) {
-                            console.log("Database write fallback.");
-                        }
-                    }
-                    
-                    window.memoryBackup.push(newMediaItem);
-                    try {
-                        localStorage.setItem("vault_backup_data", JSON.stringify(window.memoryBackup));
-                    } catch(storageErr) {
-                        console.log("Memory storage ceiling hit.");
-                    }
-                    
-                    window.loadGallery();
-                };
-                reader.readAsDataURL(file);
-            });
-        };
-
-        window.toggleSelectMode = function() {window.isSelectMode = !window.isSelectMode;
-document.getElementById('select-mode-btn').innerText = window.isSelectMode ? "Cancel" : "Select";
-document.getElementById('delete-btn').classList.add('hidden');
-window.selectedIds.clear();
-window.loadGallery();
-};
-window.deleteSelected = function() {
-if (confirm("Permanently wipe out chosen file(s)?")) {
-if(window.db) {
-try {
-var transaction = window.db.transaction(["media"], "readwrite");
-var store = transaction.objectStore("media");
-window.selectedIds.forEach(function(id) { store.delete(Number(id)); });
-} catch(err) {}
-}
-window.memoryBackup = window.memoryBackup.filter(function(item) {
-return !window.selectedIds.has(item.id.toString()) && !window.selectedIds.has(item.id);
-});
-try {
-localStorage.setItem("vault_backup_data", JSON.stringify(window.memoryBackup));
-} catch(e) {}
-window.isSelectMode = false;
-document.getElementById('select-mode-btn').innerText = "Select";
-document.getElementById('delete-btn').classList.add('hidden');
-window.selectedIds.clear();
-window.loadGallery();
-}
-};
-window.closeViewer = function() {
-document.getElementById('viewer-screen').classList.remove('active');
-document.getElementById('viewer-content').innerHTML = "";
-};
-window.loadGallery = function() {
-var grid = document.getElementById('gallery-grid');
-if (!grid) return;
-grid.innerHTML = "";
-if(window.memoryBackup.length > 0 || !window.db) {
-for(var i = window.memoryBackup.length - 1; i >= 0; i--) {
-var item = window.memoryBackup[i];
-window.buildThumbnailElement(item, grid);
-}
-} else if(window.db) {
-try {
-var store = window.db.transaction("media", "readonly").objectStore("media");
-store.openCursor(null, "prev").onsuccess = function(e) {
-var cursor = e.target.result;
-if (cursor) {
-window.buildThumbnailElement(cursor.value, grid);
-cursor.continue();
-}
-};
-} catch(err) { console.log("DB read blocked."); }
-}
-};
-window.buildThumbnailElement = function(item, grid) {
-var wrapper = document.createElement('div');
-wrapper.className = window.isSelectMode ? 'thumbnail-wrapper selectable' : 'thumbnail-wrapper';
-var media = document.createElement(item.type === 'video' ? 'video' : 'img');
-media.src = item.data;
-wrapper.appendChild(media);
-wrapper.addEventListener('click', function() {
-if (window.isSelectMode) {
-if (window.selectedIds.has(item.id.toString()) || window.selectedIds.has(item.id)) {
-window.selectedIds.delete(item.id.toString());
-window.selectedIds.delete(item.id);
-wrapper.classList.remove('selected');
-} else {
-window.selectedIds.add(item.id.toString());
-wrapper.classList.add('selected');
-}
-document.getElementById('delete-btn').classList.toggle('hidden', window.selectedIds.size === 0);
-} else {
-var viewer = document.getElementById('viewer-screen');
-var target = document.getElementById('viewer-content');
-target.innerHTML = "";
-var viewMedia = document.createElement(item.type === 'video' ? 'video' : 'img');
-viewMedia.src = item.data;
-if(item.type === 'video') viewMedia.controls = true;
-target.appendChild(viewMedia);
-viewer.classList.add('active');
-}
-});
-grid.appendChild(wrapper);
-};
+  <script src="app.js"></script>
+</body>
+</html>
