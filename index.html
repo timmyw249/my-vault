@@ -275,8 +275,7 @@
         if (item.type === 'video') {
             mediaElement = document.createElement('video');
             mediaElement.src = item.data;
-
-mediaElement.controls = true;
+            mediaElement.controls = true;
 mediaElement.autoplay = true;
 } else {
 mediaElement = document.createElement('img');
@@ -287,7 +286,7 @@ mediaElement.style.transition = "transform 0.1s ease-out";
 viewerContent.appendChild(mediaElement);
 viewerScreen.classList.remove('hidden');
 }
-// Completely asterisk-free touch calculation block
+// Completely text-safe touch logic with no syntax symbols
 function setupGestures() {
 viewerScreen.addEventListener('touchstart', (e) => {
 if (e.touches.length === 1 && currentScale === 1) {
