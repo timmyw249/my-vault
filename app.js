@@ -350,3 +350,16 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.log('Offline setup failed: ', err));
   });
 }
+// Expose functions globally to fix the type="module" button lock
+window.pressKey = pressKey;
+window.clearPin = clearPin;
+window.toggleSelectMode = toggleSelectMode;
+window.deleteSelected = deleteSelected;
+window.openSettings = openSettings;
+window.initiatePinChange = initiatePinChange;
+window.closeViewer = closeViewer;
+window.handleFiles = handleFiles;
+
+// Also expose the backup utilities we added earlier
+if (typeof exportVaultData !== 'undefined') window.exportVaultData = exportVaultData;
+if (typeof importVaultData !== 'undefined') window.importVaultData = importVaultData;
