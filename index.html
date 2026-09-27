@@ -22,19 +22,19 @@
             <div class="dot"></div>
             <div class="dot"></div>
         </div>
-        <div class="keypad">
-            <button class="key" onclick="window.pressKey('1')">1</button>
-            <button class="key" onclick="window.pressKey('2')">2</button>
-            <button class="key" onclick="window.pressKey('3')">3</button>
-            <button class="key" onclick="window.pressKey('4')">4</button>
-            <button class="key" onclick="window.pressKey('5')">5</button>
-            <button class="key" onclick="window.pressKey('6')">6</button>
-            <button class="key" onclick="window.pressKey('7')">7</button>
-            <button class="key" onclick="window.pressKey('8')">8</button>
-            <button class="key" onclick="window.pressKey('9')">9</button>
-            <button class="key" onclick="window.pressKey('C')">C</button>
-            <button class="key" onclick="window.pressKey('0')">0</button>
-            <button class="key" onclick="window.pressKey('back')">⌫</button>
+        <div class="keypad" id="vault-keypad">
+            <button class="key" data-key="1">1</button>
+            <button class="key" data-key="2">2</button>
+            <button class="key" data-key="3">3</button>
+            <button class="key" data-key="4">4</button>
+            <button class="key" data-key="5">5</button>
+            <button class="key" data-key="6">6</button>
+            <button class="key" data-key="7">7</button>
+            <button class="key" data-key="8">8</button>
+            <button class="key" data-key="9">9</button>
+            <button class="key" data-key="C">C</button>
+            <button class="key" data-key="0">0</button>
+            <button class="key" data-key="back">⌫</button>
         </div>
     </div>
 
@@ -116,16 +116,8 @@
     const selectedCountText = document.getElementById('selected-count');
     const viewerContent = document.getElementById('viewer-content');
 
-    window.addEventListener('DOMContentLoaded', async () => {
-        await initDB();
-        if (!localStorage.getItem('vault_pin')) {
-            localStorage.setItem('vault_pin', '1234');
-        }
-        renderGallery();
-        setupGestures();
-    });
-
-    window.pressKey = function(key) {
+    // Keypad Logic bound programmatically to avoid window object reference drops
+    function handleKeypadPress(key) {
         if (key === 'C') {
             currentPin = "";
         } else if (key === 'back') {
@@ -139,7 +131,7 @@
         if (currentPin.length === 4) {
             setTimeout(handlePinEntry, 200);
         }
-    };
+    }
 
     function updatePinDots() {
         dots.forEach((dot, index) => {
@@ -278,16 +270,17 @@
     function openFullScreenViewer(item) {
         viewerContent.innerHTML = "";
         currentScale = 1;
+        lastScale = 1;
 
-lastScale = 1;
-let mediaElement;
-if (item.type === 'video') {
-mediaElement = document.createElement('video');
-mediaElement.src = item.data;
-mediaElement.controls = true;
-mediaElement.autoplay = true;
-} else {
-mediaElement = document.createElement('img');
+        let mediaElement;
+        if (item.type === 'video') {
+            mediaElement = document.createElement('video');
+            mediaElement.src = item.data;
+            mediaElement.controls = true;
+            mediaElement.autoplay = true;
+        } else {
+            mediaElement = document.createElement('img');
+
 mediaElement.src = item.data;
 }
 mediaElement.style.transform = scale(${currentScale});
@@ -399,4 +392,20 @@ exitSelectMode();
 renderGallery();
 };
 }
+});
+// Execute application configuration setup safely on runtime entry
+window.addEventListener('DOMContentLoaded', async () => {
+await initDB();
+if (!localStorage.getItem('vault_pin')) {
+localStorage.setItem('vault_pin', '1234');
+}
+// Loop and attach direct click listeners inside the programmatic block
+document.querySelectorAll('#vault-keypad .key').forEach(button => {
+button.addEventListener('click', () => {
+const keyValue = button.getAttribute('data-key');
+handleKeypadPress(keyValue);
+});
+});
+renderGallery();
+setupGestures();
 });
