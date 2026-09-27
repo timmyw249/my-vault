@@ -1,71 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Photo Vault</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="manifest" href="manifest.json">
-  <!-- iOS Meta Tags -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Private Vault</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- PWA Meta Tags for iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vault">
 </head>
 <body>
 
-  <!-- PIN Screen -->
-  <div id="pin-screen" class="screen flex-center">
-    <div class="card">
-      <h2 id="pin-title">Enter Vault PIN</h2>
-      <div class="dots-container">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      </div>
-      <div class="numpad">
-        <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
-        <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
-        <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
-        <button onclick="pressKey('C')">C</button><button onclick="pressKey('0')">0</button><button onclick="clearPin()">Clear</button>
-      </div>
+    <!-- 1. PIN Screen -->
+    <div id="pin-screen" class="screen active">
+        <div class="vault-icon">🔒</div>
+        <h2 id="pin-title">Enter PIN</h2>
+        <div class="pin-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+        <div class="keypad">
+            <button class="key" onclick="pressKey('1')">1</button>
+            <button class="key" onclick="pressKey('2')">2</button>
+            <button class="key" onclick="pressKey('3')">3</button>
+            <button class="key" onclick="pressKey('4')">4</button>
+            <button class="key" onclick="pressKey('5')">5</button>
+            <button class="key" onclick="pressKey('6')">6</button>
+            <button class="key" onclick="pressKey('7')">7</button>
+            <button class="key" onclick="pressKey('8')">8</button>
+            <button class="key" onclick="pressKey('9')">9</button>
+            <button class="key" onclick="pressKey('C')">C</button>
+            <button class="key" onclick="pressKey('0')">0</button>
+            <button class="key" onclick="pressKey('back')">⌫</button>
+        </div>
     </div>
-  </div>
 
-  <!-- Main Vault Dashboard -->
-  <div id="vault-screen" class="screen hidden">
-    <header>
-      <h1>My Vault</h1>
-      <div class="actions">
-        <button id="multi-select-btn" onclick="toggleSelectMode()">Select</button>
-        <button id="delete-btn" class="danger hidden" onclick="deleteSelected()">Delete</button>
-        <button onclick="openSettings()">⚙️</button>
-      </div>
-    </header>
+    <!-- 2. Main Vault Screen -->
+    <div id="vault-screen" class="screen">
+        <header>
+            <h1>My Vault</h1>
+            <div class="header-actions">
+                <button id="select-mode-btn" class="icon-btn">Select</button>
+                <button id="settings-btn" class="icon-btn">⚙️</button>
+            </div>
+        </header>
 
-    <div id="gallery" class="grid"></div>
+        <!-- Bulk Action Bar -->
+        <div id="bulk-bar" class="bulk-bar hidden">
+            <span id="selected-count">0 items selected</span>
+            <div class="bulk-actions">
+                <button id="delete-selected-btn" class="danger-btn">Delete</button>
+                <button id="cancel-select-btn" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
 
-    <label class="fab-upload">
-      +
-      <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="handleFiles(this.files)" style="display:none;">
-    </label>
-  </div>
+        <!-- Media Grid -->
+        <main id="media-grid" class="grid"></main>
 
-  <!-- Settings View -->
-  <div id="settings-screen" class="screen hidden">
-    <header>
-      <button onclick="showScreen('vault-screen')">← Back</button>
-      <h1>Settings</h1>
-    </header>
-    <div class="settings-content">
-      <button onclick="initiatePinChange()">Change 4-Digit PIN</button>
+        <!-- Floating Add Button -->
+        <label for="file-upload" class="floating-btn">
+            <span>+</span>
+            <input type="file" id="file-upload" accept="image/*,video/*" multiple hidden>
+        </label>
     </div>
-  </div>
 
-  <!-- Fullscreen Viewer -->
-  <div id="viewer" class="hidden" onclick="closeViewer()">
-    <div id="viewer-content" onclick="event.stopPropagation()"></div>
-    <button class="close-viewer-btn" onclick="closeViewer()">✕</button>
-  </div>
+    <!-- 3. Full-Screen Viewer -->
+    <div id="viewer-screen" class="viewer hidden">
+        <button id="close-viewer" class="viewer-close">✕</button>
+        <div id="viewer-content"></div>
+    </div>
 
-  <!-- Clean local script layout with no external dependencies -->
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
