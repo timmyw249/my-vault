@@ -107,12 +107,10 @@ document.getElementById('settings-btn').addEventListener('click', () => {
     }
 });
 
-// Cleaned up Asynchronous file uploading script to prevent race conditions
 document.getElementById('file-upload').addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // Helper promise function to handle single files safely
     const processFile = (file) => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -132,14 +130,12 @@ document.getElementById('file-upload').addEventListener('change', async (e) => {
         });
     };
 
-    // Sequential resolution logic stops duplicate items rendering
     for (let file of files) {
         await processFile(file);
     }
 
-    // Refresh layout exactly once when the entire queue completes
     renderGallery();
-    e.target.value = ""; // Clear file selector input cache safely
+    e.target.value = ""; 
 });
 
 function renderGallery() {
@@ -229,7 +225,7 @@ function openFullScreenViewer(item) {
 function setupGestures() {
     viewerScreen.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchStartX = e.touches.clientX;
+            touchStartX = e.touches[0].clientX;
         }
         
         if (e.touches.length === 2) {
@@ -245,7 +241,7 @@ function setupGestures() {
 
     viewerScreen.addEventListener('touchmove', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchEndX = e.touches.clientX;
+            touchEndX = e.touches[0].clientX;
         }
 
         if (e.touches.length === 2 && initialDistance > 0) {
@@ -308,11 +304,12 @@ selectModeBtn.addEventListener('click', () => {
 
 function exitSelectMode() {
     isSelectMode = false;
-mediaGrid.classList.remove('select-mode');
-bulkBar.classList.add('hidden');
-document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
-selectedIds.clear();
+    mediaGrid.classList.remove('select-mode');
+    bulkBar.classList.add('hidden');
+    document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
+    selectedIds.clear();
 }
+
 document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
 document.getElementById('delete-selected-btn').addEventListener('click', () => {
 if (selectedIds.size === 0) return;
