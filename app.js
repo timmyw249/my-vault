@@ -293,7 +293,7 @@ function setupGestures() {
                     // Swipe Right -> Show previous file index
                     if (currentViewerIndex > 0) {
                         currentViewerIndex--;
-Use code with caution.
+
 openFullScreenViewer(galleryItems[currentViewerIndex]);
 }
 } else {
