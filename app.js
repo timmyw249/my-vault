@@ -1,3 +1,5 @@
+import PinchZoom from 'https://unpkg.com';
+
 let db;
 let currentPin = '';
 let isSelectMode = false;
