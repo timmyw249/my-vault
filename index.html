@@ -116,7 +116,7 @@
     const selectedCountText = document.getElementById('selected-count');
     const viewerContent = document.getElementById('viewer-content');
 
-    // Make function globally accessible instantly on the window object
+    // Keypad entry functions loaded safely onto global scope first
     window.handleKeypadPress = function(key) {
         if (key === 'C') {
             currentPin = "";
@@ -288,48 +288,37 @@ mediaElement.style.transition = "transform 0.1s ease-out";
 viewerContent.appendChild(mediaElement);
 viewerScreen.classList.remove('hidden');
 }
+// Completely rewritten touch logic that avoids index array lookup syntax entirely
 function setupGestures() {
 viewerScreen.addEventListener('touchstart', (e) => {
 if (e.touches.length === 1 && currentScale === 1) {
-const singleTouch = e.touches.item(0);
-if (singleTouch) {
-touchStartX = singleTouch.clientX;
-}
+touchStartX = e.touches.item(0).clientX;
 }
 if (e.touches.length === 2) {
 const mediaElement = viewerContent.querySelector('img');
 if (mediaElement) {
-const finger1 = e.touches.item(0);
-const finger2 = e.touches.item(1);
-if (finger1 && finger2) {
-initialDistance = Math.hypot(
-finger1.clientX - finger2.clientX,
-finger1.clientY - finger2.clientY
-);
-}
+const f1 = e.touches.item(0);
+const f2 = e.touches.item(1);
+const dx = f1.clientX - f2.clientX;
+const dy = f1.clientY - f2.clientY;
+initialDistance = Math.sqrt((dx * dx) + (dy * dy));
 }
 }
 }, { passive: true });
 viewerScreen.addEventListener('touchmove', (e) => {
 if (e.touches.length === 1 && currentScale === 1) {
-const singleTouch = e.touches.item(0);
-if (singleTouch) {
-touchEndX = singleTouch.clientX;
-}
+touchEndX = e.touches.item(0).clientX;
 }
 if (e.touches.length === 2 && initialDistance > 0) {
 const mediaElement = viewerContent.querySelector('img');
 if (mediaElement) {
-const finger1 = e.touches.item(0);
-const finger2 = e.touches.item(1);
-if (finger1 && finger2) {
-const currentDistance = Math.hypot(
-finger1.clientX - finger2.clientX,
-finger1.clientY - finger2.clientY
-);
+const f1 = e.touches.item(0);
+const f2 = e.touches.item(1);
+const dx = f1.clientX - f2.clientX;
+const dy = f1.clientY - f2.clientY;
+const currentDistance = Math.sqrt((dx * dx) + (dy * dy));
 currentScale = Math.min(Math.max(1, lastScale * (currentDistance / initialDistance)), 4);
 mediaElement.style.transform = scale(${currentScale});
-}
 }
 }
 }, { passive: true });
@@ -393,7 +382,6 @@ renderGallery();
 };
 }
 });
-// Run setup calculations sequentially right now
 async function startApp() {
 await initDB();
 if (!localStorage.getItem('vault_pin')) {
