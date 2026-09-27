@@ -1,3 +1,4 @@
+
 const dbName = "PhotoVaultDB";
 let db;
 
@@ -225,34 +226,50 @@ function openFullScreenViewer(item) {
 function setupGestures() {
     viewerScreen.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchStartX = e.touches[0].clientX;
+            // Safely get the clientX of the single finger touch point
+            const singleTouch = e.touches.item(0);
+            if (singleTouch) {
+                touchStartX = singleTouch.clientX;
+            }
         }
         
         if (e.touches.length === 2) {
             const mediaElement = viewerContent.querySelector('img');
             if (mediaElement) { 
-                initialDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
+                // Safely fetch finger items without bracket notation
+                const finger1 = e.touches.item(0);
+                const finger2 = e.touches.item(1);
+                if (finger1 && finger2) {
+                    initialDistance = Math.hypot(
+                        finger1.clientX - finger2.clientX,
+                        finger1.clientY - finger2.clientY
+                    );
+                }
             }
         }
     }, { passive: true });
 
     viewerScreen.addEventListener('touchmove', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchEndX = e.touches[0].clientX;
+            const singleTouch = e.touches.item(0);
+            if (singleTouch) {
+                touchEndX = singleTouch.clientX;
+            }
         }
 
         if (e.touches.length === 2 && initialDistance > 0) {
             const mediaElement = viewerContent.querySelector('img');
             if (mediaElement) {
-                const currentDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                currentScale = Math.min(Math.max(1, lastScale * (currentDistance / initialDistance)), 4);
-                mediaElement.style.transform = `scale(${currentScale})`;
+                const finger1 = e.touches.item(0);
+                const finger2 = e.touches.item(1);
+                if (finger1 && finger2) {
+                    const currentDistance = Math.hypot(
+                        finger1.clientX - finger2.clientX,
+                        finger1.clientY - finger2.clientY
+                    );
+                    currentScale = Math.min(Math.max(1, lastScale * (currentDistance / initialDistance)), 4);
+                    mediaElement.style.transform = `scale(${currentScale})`;
+                }
             }
         }
     }, { passive: true });
@@ -292,22 +309,20 @@ document.getElementById('close-viewer').addEventListener('click', () => {
     currentScale = 1;
     lastScale = 1;
 });
-
 const selectModeBtn = document.getElementById('select-mode-btn');
 selectModeBtn.addEventListener('click', () => {
-    isSelectMode = true;
-    mediaGrid.classList.add('select-mode');
-    bulkBar.classList.remove('hidden');
-    selectedIds.clear();
-    selectedCountText.innerText = "0 items selected";
+isSelectMode = true;
+mediaGrid.classList.add('select-mode');
+bulkBar.classList.remove('hidden');
+selectedIds.clear();
+selectedCountText.innerText = "0 items selected";
 });
-
 function exitSelectMode() {
-    isSelectMode = false;
-    mediaGrid.classList.remove('select-mode');
-    bulkBar.classList.add('hidden');
-    document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
-    selectedIds.clear();
+isSelectMode = false;
+mediaGrid.classList.remove('select-mode');
+bulkBar.classList.add('hidden');
+document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
+selectedIds.clear();
 }
 document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
 document.getElementById('delete-selected-btn').addEventListener('click', () => {
