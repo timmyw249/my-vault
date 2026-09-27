@@ -23,18 +23,18 @@
             <div class="dot"></div>
         </div>
         <div class="keypad" id="vault-keypad">
-            <button class="key" data-key="1">1</button>
-            <button class="key" data-key="2">2</button>
-            <button class="key" data-key="3">3</button>
-            <button class="key" data-key="4">4</button>
-            <button class="key" data-key="5">5</button>
-            <button class="key" data-key="6">6</button>
-            <button class="key" data-key="7">7</button>
-            <button class="key" data-key="8">8</button>
-            <button class="key" data-key="9">9</button>
-            <button class="key" data-key="C">C</button>
-            <button class="key" data-key="0">0</button>
-            <button class="key" data-key="back">⌫</button>
+            <button class="key" onclick="handleKeypadPress('1')">1</button>
+            <button class="key" onclick="handleKeypadPress('2')">2</button>
+            <button class="key" onclick="handleKeypadPress('3')">3</button>
+            <button class="key" onclick="handleKeypadPress('4')">4</button>
+            <button class="key" onclick="handleKeypadPress('5')">5</button>
+            <button class="key" onclick="handleKeypadPress('6')">6</button>
+            <button class="key" onclick="handleKeypadPress('7')">7</button>
+            <button class="key" onclick="handleKeypadPress('8')">8</button>
+            <button class="key" onclick="handleKeypadPress('9')">9</button>
+            <button class="key" onclick="handleKeypadPress('C')">C</button>
+            <button class="key" onclick="handleKeypadPress('0')">0</button>
+            <button class="key" onclick="handleKeypadPress('back')">⌫</button>
         </div>
     </div>
 
@@ -116,8 +116,8 @@
     const selectedCountText = document.getElementById('selected-count');
     const viewerContent = document.getElementById('viewer-content');
 
-    // Keypad Logic bound programmatically to avoid window object reference drops
-    function handleKeypadPress(key) {
+    // Make function globally accessible instantly on the window object
+    window.handleKeypadPress = function(key) {
         if (key === 'C') {
             currentPin = "";
         } else if (key === 'back') {
@@ -131,7 +131,7 @@
         if (currentPin.length === 4) {
             setTimeout(handlePinEntry, 200);
         }
-    }
+    };
 
     function updatePinDots() {
         dots.forEach((dot, index) => {
@@ -274,13 +274,13 @@
 
         let mediaElement;
         if (item.type === 'video') {
-            mediaElement = document.createElement('video');
-            mediaElement.src = item.data;
-            mediaElement.controls = true;
-            mediaElement.autoplay = true;
-        } else {
-            mediaElement = document.createElement('img');
 
+mediaElement = document.createElement('video');
+mediaElement.src = item.data;
+mediaElement.controls = true;
+mediaElement.autoplay = true;
+} else {
+mediaElement = document.createElement('img');
 mediaElement.src = item.data;
 }
 mediaElement.style.transform = scale(${currentScale});
@@ -393,19 +393,13 @@ renderGallery();
 };
 }
 });
-// Execute application configuration setup safely on runtime entry
-window.addEventListener('DOMContentLoaded', async () => {
+// Run setup calculations sequentially right now
+async function startApp() {
 await initDB();
 if (!localStorage.getItem('vault_pin')) {
 localStorage.setItem('vault_pin', '1234');
 }
-// Loop and attach direct click listeners inside the programmatic block
-document.querySelectorAll('#vault-keypad .key').forEach(button => {
-button.addEventListener('click', () => {
-const keyValue = button.getAttribute('data-key');
-handleKeypadPress(keyValue);
-});
-});
 renderGallery();
 setupGestures();
-});
+}
+startApp();
