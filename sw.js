@@ -1,12 +1,10 @@
-const CACHE_NAME = 'vault-cache-v10'; // Upgraded version pushes a clean memory overwrite
+```javascript
+const CACHE_NAME = 'vault-cache-v11'; 
 const ASSETS = [
   'index.html',
   'styles.css',
   'app.js',
-  'manifest.json',
-  'https://unpkg.com', // Updated extension format
-  'https://unpkg.com',
-  'https://icons8.com'
+  'manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
