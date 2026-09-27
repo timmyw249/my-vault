@@ -336,3 +336,21 @@ function handleSwipeGesture() {
 
   if (Math.abs(difference) > swipeThreshold) {
     if (difference > 0) {
+      if (currentViewerIndex < allMediaRecords.length - 1) openViewer(currentViewerIndex + 1);
+} else {
+if (currentViewerIndex > 0) openViewer(currentViewerIndex - 1);
+}
+}
+}
+function closeViewer() {
+document.getElementById('viewer').classList.add('hidden');
+document.getElementById('viewer-content').innerHTML = '';
+currentViewerIndex = -1;
+}
+function openSettings() { showScreen('settings-screen'); }
+function initiatePinChange() {
+pinState = 'set-old';
+document.getElementById('pin-title').innerText = "Enter Existing PIN";
+showScreen('pin-screen');
+clearPin();
+}
