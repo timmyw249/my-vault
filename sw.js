@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-cache-v9'; // Upgraded version pushes a clean memory overwrite
+const CACHE_NAME = 'vault-cache-v10'; // Upgraded version pushes a clean memory overwrite
 const ASSETS = [
   'index.html',
   'styles.css',
