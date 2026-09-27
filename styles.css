@@ -238,3 +238,14 @@ header {
     max-height: 100vh;
     object-fit: contain;
 }
+
+/* Tapping and holding a full screen image scales it instantly without JS */
+#viewer-content img:active {
+    transform: scale(2.5);
+    transition: transform 0.15s ease-out;
+}
+
+/* Tells your phone not to wait for double-tap delay on the image wrapper */
+#viewer-content {
+    touch-action: manipulation;
+}
