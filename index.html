@@ -116,7 +116,6 @@
     const selectedCountText = document.getElementById('selected-count');
     const viewerContent = document.getElementById('viewer-content');
 
-    // Keypad entry functions loaded safely onto global scope first
     window.handleKeypadPress = function(key) {
         if (key === 'C') {
             currentPin = "";
@@ -274,21 +273,21 @@
 
         let mediaElement;
         if (item.type === 'video') {
+            mediaElement = document.createElement('video');
+            mediaElement.src = item.data;
 
-mediaElement = document.createElement('video');
-mediaElement.src = item.data;
 mediaElement.controls = true;
 mediaElement.autoplay = true;
 } else {
 mediaElement = document.createElement('img');
 mediaElement.src = item.data;
 }
-mediaElement.style.transform = scale(${currentScale});
+mediaElement.style.transform = "scale(" + currentScale + ")";
 mediaElement.style.transition = "transform 0.1s ease-out";
 viewerContent.appendChild(mediaElement);
 viewerScreen.classList.remove('hidden');
 }
-// Completely rewritten touch logic that avoids index array lookup syntax entirely
+// Completely asterisk-free touch calculation block
 function setupGestures() {
 viewerScreen.addEventListener('touchstart', (e) => {
 if (e.touches.length === 1 && currentScale === 1) {
@@ -301,7 +300,7 @@ const f1 = e.touches.item(0);
 const f2 = e.touches.item(1);
 const dx = f1.clientX - f2.clientX;
 const dy = f1.clientY - f2.clientY;
-initialDistance = Math.sqrt((dx * dx) + (dy * dy));
+initialDistance = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
 }
 }
 }, { passive: true });
@@ -316,9 +315,10 @@ const f1 = e.touches.item(0);
 const f2 = e.touches.item(1);
 const dx = f1.clientX - f2.clientX;
 const dy = f1.clientY - f2.clientY;
-const currentDistance = Math.sqrt((dx * dx) + (dy * dy));
-currentScale = Math.min(Math.max(1, lastScale * (currentDistance / initialDistance)), 4);
-mediaElement.style.transform = scale(${currentScale});
+const currentDistance = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+const ratio = currentDistance / initialDistance;
+currentScale = Math.min(Math.max(1, lastScale * ratio), 4);
+mediaElement.style.transform = "scale(" + currentScale + ")";
 }
 }
 }, { passive: true });
