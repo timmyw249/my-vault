@@ -309,3 +309,16 @@ function exitSelectMode() {
     document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
     selectedIds.clear();
 }
+document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
+document.getElementById('delete-selected-btn').addEventListener('click', () => {
+if (selectedIds.size === 0) return;
+if (confirm(Are you sure you want to permanently delete these ${selectedIds.size} items?)) {
+const tx = db.transaction("media", "readwrite");
+const store = tx.objectStore("media");
+selectedIds.forEach(id => store.delete(id));
+tx.oncomplete = () => {
+exitSelectMode();
+renderGallery();
+};
+}
+});
