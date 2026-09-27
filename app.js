@@ -56,24 +56,29 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupGestures(); // Activates touch tracking mechanics
 });
 
-// Keypad logic
+// Robust Keypad Logic using Event Delegation
 function setupKeypad() {
-    document.querySelectorAll('.key').forEach(button => {
-        button.addEventListener('click', () => {
-            if (button.id === 'clear-btn') {
-                currentPin = "";
-            } else if (button.id === 'back-btn') {
-                currentPin = currentPin.slice(0, -1);
-            } else if (currentPin.length < 4 && !button.id) {
-                currentPin += button.innerText;
-            }
-            
-            updatePinDots();
+    const keypadContainer = document.querySelector('.keypad');
+    if (!keypadContainer) return;
 
-            if (currentPin.length === 4) {
-                setTimeout(handlePinEntry, 200);
-            }
-        });
+    keypadContainer.addEventListener('click', (e) => {
+        // Ensure the clicked element is a button inside the keypad
+        const button = e.target.closest('.key');
+        if (!button) return;
+
+        if (button.id === 'clear-btn') {
+            currentPin = "";
+        } else if (button.id === 'back-btn') {
+            currentPin = currentPin.slice(0, -1);
+        } else if (currentPin.length < 4 && !button.id) {
+            currentPin += button.innerText.trim();
+        }
+        
+        updatePinDots();
+
+        if (currentPin.length === 4) {
+            setTimeout(handlePinEntry, 200);
+        }
     });
 }
 
@@ -290,10 +295,10 @@ function setupGestures() {
 
             if (Math.abs(swipeDistance) > threshold) {
                 if (swipeDistance > 0) {
-                    // Swipe Right -> Show previous file index
-                    if (currentViewerIndex > 0) {
-                        currentViewerIndex--;
 
+// Swipe Right -> Show previous file index
+if (currentViewerIndex > 0) {
+currentViewerIndex--;
 openFullScreenViewer(galleryItems[currentViewerIndex]);
 }
 } else {
