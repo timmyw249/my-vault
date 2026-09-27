@@ -20,6 +20,17 @@ let isSelectMode = false;
 let selectedIds = new Set();
 let isResettingPin = false;
 
+// Global gallery track for swiping
+let galleryItems = [];
+let currentViewerIndex = -1;
+
+// Gesture state variables
+let touchStartX = 0;
+let touchEndX = 0;
+let initialDistance = 0;
+let currentScale = 1;
+let lastScale = 1;
+
 const pinScreen = document.getElementById('pin-screen');
 const vaultScreen = document.getElementById('vault-screen');
 const viewerScreen = document.getElementById('viewer-screen');
@@ -28,6 +39,7 @@ const dots = document.querySelectorAll('.dot');
 const mediaGrid = document.getElementById('media-grid');
 const bulkBar = document.getElementById('bulk-bar');
 const selectedCountText = document.getElementById('selected-count');
+const viewerContent = document.getElementById('viewer-content');
 
 window.addEventListener('DOMContentLoaded', async () => {
     await initDB();
@@ -35,6 +47,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('vault_pin', '1234');
     }
     renderGallery();
+    setupGestures();
 });
 
 window.pressKey = function(key) {
@@ -114,6 +127,7 @@ document.getElementById('file-upload').addEventListener('change', async (e) => {
 
 function renderGallery() {
     mediaGrid.innerHTML = "";
+    galleryItems = []; // Clear array
     const tx = db.transaction("media", "readonly");
     const store = tx.objectStore("media");
     
@@ -121,6 +135,8 @@ function renderGallery() {
         const cursor = e.target.result;
         if (cursor) {
             const item = cursor.value;
+            galleryItems.push(item); // Cache current list structure for indices
+            
             const wrapper = document.createElement('div');
             wrapper.className = 'thumbnail-wrapper';
             wrapper.dataset.id = item.id;
@@ -166,27 +182,114 @@ function handleItemClick(item, element) {
         }
         selectedCountText.innerText = `${selectedIds.size} items selected`;
     } else {
-        const viewerContent = document.getElementById('viewer-content');
-        viewerContent.innerHTML = "";
-        
-        if (item.type === 'video') {
-            const video = document.createElement('video');
-            video.src = item.data;
-            video.controls = true;
-            video.autoplay = true;
-            viewerContent.appendChild(video);
-        } else {
-            const img = document.createElement('img');
-            img.src = item.data;
-            viewerContent.appendChild(img);
-        }
-        viewerScreen.classList.remove('hidden');
+        // Track modern index location within available structure
+        currentViewerIndex = galleryItems.findIndex(g => g.id === item.id);
+        openFullScreenViewer(item);
     }
+}
+
+function openFullScreenViewer(item) {
+    viewerContent.innerHTML = "";
+    // Reset Zoom Scale parameters
+    currentScale = 1;
+    lastScale = 1;
+
+    let mediaElement;
+    if (item.type === 'video') {
+        mediaElement = document.createElement('video');
+        mediaElement.src = item.data;
+        mediaElement.controls = true;
+        mediaElement.autoplay = true;
+    } else {
+        mediaElement = document.createElement('img');
+        mediaElement.src = item.data;
+    }
+    
+    mediaElement.style.transform = `scale(${currentScale})`;
+    mediaElement.style.transition = "transform 0.1s ease-out";
+    viewerContent.appendChild(mediaElement);
+    viewerScreen.classList.remove('hidden');
+}
+
+// Swipe and Zoom Gestures Logic
+function setupGestures() {
+    // 1. SWIPE DETECTION
+    viewerScreen.addEventListener('touchstart', (e) => {
+        // Only track swipe if user is not zooming in
+        if (e.touches.length === 1 && currentScale === 1) {
+            touchStartX = e.touches[0].clientX;
+        }
+        
+        // 2. PINCH TO ZOOM DETECTION
+        if (e.touches.length === 2) {
+            const mediaElement = viewerContent.querySelector('img, video');
+            if (mediaElement && mediaElement.tagName === 'IMG') { // Only zoom photos
+                initialDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        }
+    }, { passive: true });
+
+    viewerScreen.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && currentScale === 1) {
+            touchEndX = e.touches[0].clientX;
+        }
+
+        if (e.touches.length === 2 && initialDistance > 0) {
+            const mediaElement = viewerContent.querySelector('img');
+            if (mediaElement) {
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                // Calculate new operational scale boundaries
+                currentScale = Math.min(Math.max(1, lastScale * (currentDistance / initialDistance)), 4);
+                mediaElement.style.transform = `scale(${currentScale})`;
+            }
+        }
+    }, { passive: true });
+
+    viewerScreen.addEventListener('touchend', (e) => {
+        // Handle end of pinch tracking parameters
+        if (e.touches.length < 2) {
+            initialDistance = 0;
+            lastScale = currentScale;
+        }
+
+        // Handle end of single-finger swipe navigation parameters
+        if (currentScale === 1 && touchStartX !== 0 && touchEndX !== 0) {
+            const swipeDistance = touchEndX - touchStartX;
+            const threshold = 60; // minimum distance in pixels to trigger swipe
+
+            if (Math.abs(swipeDistance) > threshold) {
+                if (swipeDistance > 0) {
+                    // Swiped Right -> Go to previous asset item
+                    if (currentViewerIndex > 0) {
+                        currentViewerIndex--;
+                        openFullScreenViewer(galleryItems[currentViewerIndex]);
+                    }
+                } else {
+                    // Swiped Left -> Go to next asset item
+                    if (currentViewerIndex < galleryItems.length - 1) {
+                        currentViewerIndex++;
+                        openFullScreenViewer(galleryItems[currentViewerIndex]);
+                    }
+                }
+            }
+        }
+        // Reset positions
+        touchStartX = 0;
+        touchEndX = 0;
+    }, { passive: true });
 }
 
 document.getElementById('close-viewer').addEventListener('click', () => {
     viewerScreen.classList.add('hidden');
-    document.getElementById('viewer-content').innerHTML = "";
+    viewerContent.innerHTML = "";
+    currentScale = 1;
+    lastScale = 1;
 });
 
 const selectModeBtn = document.getElementById('select-mode-btn');
@@ -194,29 +297,26 @@ selectModeBtn.addEventListener('click', () => {
     isSelectMode = true;
     mediaGrid.classList.add('select-mode');
     bulkBar.classList.remove('hidden');
-    selectedIds.clear();
-    selectedCountText.innerText = "0 items selected";
+selectedIds.clear();
+selectedCountText.innerText = "0 items selected";
 });
-
 function exitSelectMode() {
-    isSelectMode = false;
-    mediaGrid.classList.remove('select-mode');
-    bulkBar.classList.add('hidden');
-    document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
-    selectedIds.clear();
+isSelectMode = false;
+mediaGrid.classList.remove('select-mode');
+bulkBar.classList.add('hidden');
+document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
+selectedIds.clear();
 }
-
 document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
-
 document.getElementById('delete-selected-btn').addEventListener('click', () => {
-    if (selectedIds.size === 0) return;
-    if (confirm(`Are you sure you want to permanently delete these ${selectedIds.size} items?`)) {
-        const tx = db.transaction("media", "readwrite");
-        const store = tx.objectStore("media");
-        selectedIds.forEach(id => store.delete(id));
-        tx.oncomplete = () => {
-            exitSelectMode();
-            renderGallery();
-        };
-    }
+if (selectedIds.size === 0) return;
+if (confirm(Are you sure you want to permanently delete these ${selectedIds.size} items?)) {
+const tx = db.transaction("media", "readwrite");
+const store = tx.objectStore("media");
+selectedIds.forEach(id => store.delete(id));
+tx.oncomplete = () => {
+exitSelectMode();
+renderGallery();
+};
+}
 });
