@@ -65,9 +65,8 @@
     <button class="close-viewer-btn" onclick="closeViewer()">✕</button>
   </div>
 
-  <!-- Added "defer" to guarantee libraries load before app.js runs -->
+  <!-- Simplified script setup: type="module" handles background dependencies smoothly -->
   <script src="https://unpkg.com" defer></script>
-  <script src="https://unpkg.com" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js" type="module"></script>
 </body>
 </html>
