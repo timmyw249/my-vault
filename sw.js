@@ -1,10 +1,10 @@
-const CACHE_NAME = 'vault-cache-v8'; // Upgraded version pushes a clean memory overwrite
+const CACHE_NAME = 'vault-cache-v9'; // Upgraded version pushes a clean memory overwrite
 const ASSETS = [
   'index.html',
   'styles.css',
   'app.js',
   'manifest.json',
-  'https://unpkg.com',
+  'https://unpkg.com', // Updated extension format
   'https://unpkg.com',
   'https://icons8.com'
 ];
