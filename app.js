@@ -291,7 +291,7 @@ function openViewer(index) {
   // Updated Pinch Zoom Configuration (Overrides iOS touch-action constraints)
   if (!record.type.startsWith('video/')) {
     setTimeout(() => {
-      new PinchZoom.default(element, {
+      new PinchZoom(element, {
         draggableUnzoomed: false, // Prevents conflict with left/right swiping
         minZoom: 1,
         maxZoom: 4,
