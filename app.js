@@ -107,22 +107,39 @@ document.getElementById('settings-btn').addEventListener('click', () => {
     }
 });
 
+// Cleaned up Asynchronous file uploading script to prevent race conditions
 document.getElementById('file-upload').addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
-    
+    if (files.length === 0) return;
+
+    // Helper promise function to handle single files safely
+    const processFile = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function () {
+                const tx = db.transaction("media", "readwrite");
+                const store = tx.objectStore("media");
+                
+                store.add({
+                    type: file.type.startsWith('video/') ? 'video' : 'image',
+                    data: reader.result,
+                    timestamp: Date.now()
+                });
+                
+                tx.oncomplete = () => resolve();
+            };
+        });
+    };
+
+    // Sequential resolution logic stops duplicate items rendering
     for (let file of files) {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = function () {
-            const tx = db.transaction("media", "readwrite");
-            tx.objectStore("media").add({
-                type: file.type.startsWith('video/') ? 'video' : 'image',
-                data: reader.result,
-                timestamp: Date.now()
-            });
-            tx.oncomplete = () => renderGallery();
-        };
+        await processFile(file);
     }
+
+    // Refresh layout exactly once when the entire queue completes
+    renderGallery();
+    e.target.value = ""; // Clear file selector input cache safely
 });
 
 function renderGallery() {
@@ -210,13 +227,11 @@ function openFullScreenViewer(item) {
 }
 
 function setupGestures() {
-    // 1. SWIPE DETECTION
     viewerScreen.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchStartX = e.touches[0].clientX;
+            touchStartX = e.touches.clientX;
         }
         
-        // 2. PINCH TO ZOOM DETECTION
         if (e.touches.length === 2) {
             const mediaElement = viewerContent.querySelector('img');
             if (mediaElement) { 
@@ -230,7 +245,7 @@ function setupGestures() {
 
     viewerScreen.addEventListener('touchmove', (e) => {
         if (e.touches.length === 1 && currentScale === 1) {
-            touchEndX = e.touches[0].clientX;
+            touchEndX = e.touches.clientX;
         }
 
         if (e.touches.length === 2 && initialDistance > 0) {
@@ -293,18 +308,16 @@ selectModeBtn.addEventListener('click', () => {
 
 function exitSelectMode() {
     isSelectMode = false;
-    mediaGrid.classList.remove('select-mode');
-    bulkBar.classList.add('hidden');
-    document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
-    selectedIds.clear();
+mediaGrid.classList.remove('select-mode');
+bulkBar.classList.add('hidden');
+document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
+selectedIds.clear();
 }
-
 document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
-
 document.getElementById('delete-selected-btn').addEventListener('click', () => {
-    if (selectedIds.size === 0) return;
-    if (confirm(`Are you sure you want to permanently delete these ${selectedIds.size} items?`)) {
-        const tx = db.transaction("media", "readwrite");
+if (selectedIds.size === 0) return;
+if (confirm(Are you sure you want to permanently delete these ${selectedIds.size} items?)) {
+const tx = db.transaction("media", "readwrite");
 const store = tx.objectStore("media");
 selectedIds.forEach(id => store.delete(id));
 tx.oncomplete = () => {
@@ -313,4 +326,3 @@ renderGallery();
 };
 }
 });
-
