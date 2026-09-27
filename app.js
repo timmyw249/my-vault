@@ -1,356 +1,222 @@
+const dbName = "PhotoVaultDB";
 let db;
-let currentPin = '';
+
+const initDB = () => {
+    return new Promise((resolve) => {
+        let request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+        };
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            resolve();
+        };
+    });
+};
+
+let currentPin = "";
 let isSelectMode = false;
-let selectedItems = new Set();
-let pinState = 'verify'; // 'verify', 'set-old', 'set-new'
-let tempNewPin = '';
+let selectedIds = new Set();
+let isResettingPin = false;
 
-// Touch Tracking State Variables
-let allMediaRecords = []; 
-let currentViewerIndex = -1;
-let touchStartX = 0;
-let touchEndX = 0;
-let isSlidingToSelect = false;
+const pinScreen = document.getElementById('pin-screen');
+const vaultScreen = document.getElementById('vault-screen');
+const viewerScreen = document.getElementById('viewer-screen');
+const pinTitle = document.getElementById('pin-title');
+const dots = document.querySelectorAll('.dot');
+const mediaGrid = document.getElementById('media-grid');
+const bulkBar = document.getElementById('bulk-bar');
+const selectedCountText = document.getElementById('selected-count');
 
-// Pinch-to-Zoom state variables for the Fullscreen Viewer
-let currentZoom = 1;
-let lastTouchDistance = 0;
-let isPanning = false;
-let panStartX = 0, panStartY = 0;
-let currentPanX = 0, currentPanY = 0;
-
-// Initialize IndexedDB Storage
-const request = indexedDB.open("VaultDB", 1);
-request.onupgradeneeded = (e) => {
-  db = e.target.result;
-  db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
-  db.createObjectStore("config");
-};
-request.onsuccess = (e) => {
-  db = e.target.result;
-  checkSetup();
-};
-
-function checkSetup() {
-  const transaction = db.transaction(["config"], "readonly");
-  const store = transaction.objectStore("config");
-  const getReq = store.get("pin");
-  
-  getReq.onsuccess = () => {
-    if (!getReq.result) {
-      document.getElementById('pin-title').innerText = "Create Your 4-Digit PIN";
-      pinState = 'set-new';
+window.addEventListener('DOMContentLoaded', async () => {
+    await initDB();
+    if (!localStorage.getItem('vault_pin')) {
+        localStorage.setItem('vault_pin', '1234');
     }
-  };
-}
+    renderGallery();
+});
 
-// Numpad Controls
-function pressKey(num) {
-  if (currentPin.length < 4) {
-    currentPin += num;
-    updateDots();
+window.pressKey = function(key) {
+    if (key === 'C') {
+        currentPin = "";
+    } else if (key === 'back') {
+        currentPin = currentPin.slice(0, -1);
+    } else if (currentPin.length < 4) {
+        currentPin += key;
+    }
+    
+    updatePinDots();
+
     if (currentPin.length === 4) {
-      setTimeout(processPin, 200);
+        setTimeout(handlePinEntry, 200);
     }
-  }
+};
+
+function updatePinDots() {
+    dots.forEach((dot, index) => {
+        if (index < currentPin.length) dot.classList.add('filled');
+        else dot.classList.remove('filled');
+    });
 }
 
-function clearPin() { currentPin = ''; updateDots(); }
-function updateDots() {
-  const dots = document.querySelectorAll('.dot');
-  dots.forEach((dot, index) => {
-    dot.classList.toggle('filled', index < currentPin.length);
-  });
-}
+function handlePinEntry() {
+    const savedPin = localStorage.getItem('vault_pin');
 
-function processPin() {
-  const transaction = db.transaction(["config"], "readwrite");
-  const store = transaction.objectStore("config");
-
-  if (pinState === 'set-new') {
-    store.put(currentPin, "pin");
-    alert("PIN successfully set!");
-    pinState = 'verify';
-    document.getElementById('pin-title').innerText = "Enter Vault PIN";
-    unlockVault();
-  } else if (pinState === 'verify') {
-    const getReq = store.get("pin");
-    getReq.onsuccess = () => {
-      if (currentPin === getReq.result) {
-        unlockVault();
-      } else {
-        alert("Incorrect PIN");
-        clearPin();
-      }
-    };
-  } else if (pinState === 'set-old') {
-    const getReq = store.get("pin");
-    getReq.onsuccess = () => {
-      if (currentPin === getReq.result) {
-        pinState = 'set-new';
-        document.getElementById('pin-title').innerText = "Enter New PIN";
-        showScreen('pin-screen');
-        clearPin();
-      } else {
-        alert("Incorrect current PIN");
-        clearPin();
-      }
-    };
-  }
-}
-
-function unlockVault() {
-  showScreen('vault-screen');
-  loadGallery();
-  clearPin();
-}
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
-}
-
-// HEIC-to-JPEG Image Loader fallback Engine
-async function handleFiles(files) {
-  const fileArray = Array.from(files);
-  const recordsToSave = [];
-
-  for (const file of fileArray) {
-    try {
-      const dataUrl = await readFileAsDataURL(file);
-      recordsToSave.push({
-        type: file.type,
-        data: dataUrl,
-        timestamp: Date.now()
-      });
-    } catch (err) {
-      console.error("Error reading file:", file.name, err);
+    if (isResettingPin) {
+        localStorage.setItem('vault_pin', currentPin);
+        alert("PIN changed successfully!");
+        isResettingPin = false;
+        pinTitle.innerText = "Enter PIN";
+        currentPin = "";
+        updatePinDots();
+        return;
     }
-  }
 
-  if (recordsToSave.length > 0) {
-    const transaction = db.transaction(["media"], "readwrite");
-    const store = transaction.objectStore("media");
-    recordsToSave.forEach(record => store.add(record));
-    transaction.oncomplete = () => loadGallery();
-  }
-}
-
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = (e) => reject(e);
-    reader.readAsDataURL(file);
-  });
-}
-
-// Enhanced Gallery Renderer
-function loadGallery() {
-  const gallery = document.getElementById('gallery');
-  if (!gallery) return;
-  gallery.innerHTML = '';
-  selectedItems.clear();
-  allMediaRecords = []; 
-  
-  if (!db) return;
-
-  const transaction = db.transaction(["media"], "readonly");
-  const store = transaction.objectStore("media");
-  
-  store.openCursor().onsuccess = (event) => {
-    const cursor = event.target.result;
-    if (cursor) {
-      const record = cursor.value;
-      allMediaRecords.push(record);
-      
-      const wrapper = document.createElement('div');
-      wrapper.className = `thumbnail-wrapper ${isSelectMode ? 'selectable' : ''}`;
-      wrapper.dataset.id = record.id;
-      wrapper.dataset.index = allMediaRecords.length - 1;
-      
-      let element;
-      if (record.type.startsWith('video/')) {
-        element = document.createElement('video');
-        element.muted = true;
-        element.playsInline = true;
-      } else {
-        element = document.createElement('img');
-      }
-      element.src = record.data;
-      wrapper.appendChild(element);
-      
-      wrapper.addEventListener('click', () => {
-        if (!isSlidingToSelect) handleItemClick(record, Number(wrapper.dataset.index), wrapper);
-      });
-      
-      gallery.appendChild(wrapper);
-      cursor.continue();
-    }
-  };
-}
-
-// Slide-to-Select Logic
-const galleryEl = document.getElementById('gallery');
-galleryEl.addEventListener('touchstart', (e) => {
-  if (!isSelectMode) return;
-  isSlidingToSelect = true;
-  processSlideSelection(e);
-});
-galleryEl.addEventListener('touchmove', (e) => {
-  if (!isSelectMode || !isSlidingToSelect) return;
-  processSlideSelection(e);
-});
-galleryEl.addEventListener('touchend', () => {
-  setTimeout(() => { isSlidingToSelect = false; }, 50);
-});
-
-function processSlideSelection(e) {
-  const touch = e.touches[0];
-  if (!touch) return;
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  const wrapper = target ? target.closest('.thumbnail-wrapper') : null;
-  
-  if (wrapper) {
-    const id = Number(wrapper.dataset.id);
-    if (!selectedItems.has(id)) {
-      selectedItems.add(id);
-      wrapper.classList.add('selected');
-    }
-  }
-}
-
-function handleItemClick(record, index, wrapper) {
-  if (isSelectMode) {
-    if (selectedItems.has(record.id)) {
-      selectedItems.delete(record.id);
-      wrapper.classList.remove('selected');
+    if (currentPin === savedPin) {
+        pinScreen.classList.remove('active');
+        vaultScreen.classList.add('active');
+        currentPin = "";
+        updatePinDots();
     } else {
-      selectedItems.add(record.id);
-      wrapper.classList.add('selected');
+        alert("Incorrect PIN");
+        currentPin = "";
+        updatePinDots();
     }
-  } else {
-    openViewer(index);
-  }
 }
 
-function toggleSelectMode() {
-  isSelectMode = !isSelectMode;
-  document.getElementById('multi-select-btn').innerText = isSelectMode ? "Cancel" : "Select";
-  document.getElementById('delete-btn').classList.toggle('hidden', !isSelectMode);
-  loadGallery();
-}
-
-function deleteSelected() {
-  if (selectedItems.size === 0) return;
-  if (confirm(`Delete ${selectedItems.size} items permanently?`)) {
-    const transaction = db.transaction(["media"], "readwrite");
-    const store = transaction.objectStore("media");
-    selectedItems.forEach(id => store.delete(Number(id)));
-    transaction.oncomplete = () => toggleSelectMode();
-  }
-}
-
-// Fullscreen Viewer Engine
-function openViewer(index) {
-  if (index < 0 || index >= allMediaRecords.length) return;
-  currentViewerIndex = index;
-  const record = allMediaRecords[index];
-  
-  const container = document.getElementById('viewer-content');
-  container.innerHTML = '';
-  
-  // Reset zoom vectors on loading new asset
-  currentZoom = 1;
-  currentPanX = 0;
-  currentPanY = 0;
-  container.style.transform = `translate(0px, 0px) scale(1)`;
-
-  let element;
-  if (record.type.startsWith('video/')) {
-    element = document.createElement('video');
-    element.controls = true;
-    element.autoplay = true;
-  } else {
-    element = document.createElement('img');
-  }
-  element.src = record.data;
-  container.appendChild(element);
-  document.getElementById('viewer').classList.remove('hidden');
-}
-
-// Native Multi-Touch Logic (Zoom + Swipe Left/Right)
-const viewerEl = document.getElementById('viewer');
-const viewerContent = document.getElementById('viewer-content');
-
-viewerEl.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) {
-    // Single Finger Swipe or Pan gesture setup
-    touchStartX = e.touches[0].screenX;
-    if (currentZoom > 1) {
-      isPanning = true;
-      panStartX = e.touches[0].clientX - currentPanX;
-      panStartY = e.touches[0].clientY - currentPanY;
+document.getElementById('settings-btn').addEventListener('click', () => {
+    if (confirm("Would you like to change your 4-digit PIN?")) {
+        vaultScreen.classList.remove('active');
+        pinScreen.classList.add('active');
+        pinTitle.innerText = "Enter New PIN";
+        isResettingPin = true;
     }
-  } else if (e.touches.length === 2) {
-    // Two Finger Pinch gesture setup
-    isPanning = false;
-    lastTouchDistance = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-  }
-}, { passive: true });
+});
 
-viewerEl.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 1 && isPanning) {
-    // Pan image around if it is zoomed in
-    currentPanX = e.touches[0].clientX - panStartX;
-    currentPanY = e.touches[0].clientY - panStartY;
-    viewerContent.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoom})`;
-  } else if (e.touches.length === 2) {
-    // Calculate scaling zoom factors manually
-    const distance = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-    const factor = distance / lastTouchDistance;
-    lastTouchDistance = distance;
+document.getElementById('file-upload').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    
+    for (let file of files) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function () {
+            const tx = db.transaction("media", "readwrite");
+            tx.objectStore("media").add({
+                type: file.type.startsWith('video/') ? 'video' : 'image',
+                data: reader.result,
+                timestamp: Date.now()
+            });
+            tx.oncomplete = () => renderGallery();
+        };
+    }
+});
 
-    currentZoom = Math.max(1, Math.min(currentZoom * factor, 4)); // Limits magnification range between 1x and 4x
-    viewerContent.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoom})`;
-  }
-}, { passive: true });
+function renderGallery() {
+    mediaGrid.innerHTML = "";
+    const tx = db.transaction("media", "readonly");
+    const store = tx.objectStore("media");
+    
+    store.openCursor(null, "prev").onsuccess = function(e) {
+        const cursor = e.target.result;
+        if (cursor) {
+            const item = cursor.value;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'thumbnail-wrapper';
+            wrapper.dataset.id = item.id;
 
-viewerEl.addEventListener('touchend', (e) => {
-  isPanning = false;
-  if (e.touches.length === 0 && currentZoom === 1) {
-    touchEndX = e.changedTouches[0].screenX;
-    handleSwipeGesture();
-  }
-}, { passive: true });
+            if (item.type === 'video') {
+                const video = document.createElement('video');
+                video.src = item.data;
+                video.muted = true;
+                video.playsInline = true;
+                wrapper.appendChild(video);
+                
+                const badge = document.createElement('div');
+                badge.className = 'video-badge';
+                badge.innerText = '▶';
+                wrapper.appendChild(badge);
+            } else {
+                const img = document.createElement('img');
+                img.src = item.data;
+                wrapper.appendChild(img);
+            }
 
-function handleSwipeGesture() {
-  const swipeThreshold = 60;
-  const difference = touchStartX - touchEndX;
+            const overlay = document.createElement('div');
+            overlay.className = 'select-overlay';
+            overlay.innerHTML = '<div class="checkbox-indicator"></div>';
+            wrapper.appendChild(overlay);
 
-  if (Math.abs(difference) > swipeThreshold) {
-    if (difference > 0) {
-      if (currentViewerIndex < allMediaRecords.length - 1) openViewer(currentViewerIndex + 1);
-} else {
-if (currentViewerIndex > 0) openViewer(currentViewerIndex - 1);
+            wrapper.addEventListener('click', () => handleItemClick(item, wrapper));
+            mediaGrid.appendChild(wrapper);
+            cursor.continue();
+        }
+    };
 }
+
+function handleItemClick(item, element) {
+    if (isSelectMode) {
+        const id = parseInt(element.dataset.id);
+        if (selectedIds.has(id)) {
+            selectedIds.delete(id);
+            element.classList.remove('selected');
+        } else {
+            selectedIds.add(id);
+            element.classList.add('selected');
+        }
+        selectedCountText.innerText = `${selectedIds.size} items selected`;
+    } else {
+        const viewerContent = document.getElementById('viewer-content');
+        viewerContent.innerHTML = "";
+        
+        if (item.type === 'video') {
+            const video = document.createElement('video');
+            video.src = item.data;
+            video.controls = true;
+            video.autoplay = true;
+            viewerContent.appendChild(video);
+        } else {
+            const img = document.createElement('img');
+            img.src = item.data;
+            viewerContent.appendChild(img);
+        }
+        viewerScreen.classList.remove('hidden');
+    }
 }
+
+document.getElementById('close-viewer').addEventListener('click', () => {
+    viewerScreen.classList.add('hidden');
+    document.getElementById('viewer-content').innerHTML = "";
+});
+
+const selectModeBtn = document.getElementById('select-mode-btn');
+selectModeBtn.addEventListener('click', () => {
+    isSelectMode = true;
+    mediaGrid.classList.add('select-mode');
+    bulkBar.classList.remove('hidden');
+    selectedIds.clear();
+    selectedCountText.innerText = "0 items selected";
+});
+
+function exitSelectMode() {
+    isSelectMode = false;
+    mediaGrid.classList.remove('select-mode');
+    bulkBar.classList.add('hidden');
+    document.querySelectorAll('.thumbnail-wrapper').forEach(el => el.classList.remove('selected'));
+    selectedIds.clear();
 }
-function closeViewer() {
-document.getElementById('viewer').classList.add('hidden');
-document.getElementById('viewer-content').innerHTML = '';
-currentViewerIndex = -1;
-}
-function openSettings() { showScreen('settings-screen'); }
-function initiatePinChange() {
-pinState = 'set-old';
-document.getElementById('pin-title').innerText = "Enter Existing PIN";
-showScreen('pin-screen');
-clearPin();
-}
+
+document.getElementById('cancel-select-btn').addEventListener('click', exitSelectMode);
+
+document.getElementById('delete-selected-btn').addEventListener('click', () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(`Are you sure you want to permanently delete these ${selectedIds.size} items?`)) {
+        const tx = db.transaction("media", "readwrite");
+        const store = tx.objectStore("media");
+        selectedIds.forEach(id => store.delete(id));
+        tx.oncomplete = () => {
+            exitSelectMode();
+            renderGallery();
+        };
+    }
+});
